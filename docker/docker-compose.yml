@@ -1,68 +1,145 @@
 version: '3.8'
 
 services:
-  # FastAPI Backend
+  # FastAPI Backend Service
   backend:
     build:
       context: ../backend
       dockerfile: Dockerfile
+      target: development  # Use development stage for hot reload
     container_name: social-media-backend
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=sqlite:///./app.db
+      - DATABASE_URL=sqlite:///./data/app.db
       - ENVIRONMENT=development
+      - REDIS_URL=redis://redis:6379
+      - CLAMAV_HOST=clamav
+      - CLAMAV_PORT=3310
+      - PYTHONPATH=/app
     volumes:
       - ../backend:/app
+      - backend_data:/app/data
+      - downloads_data:/app/downloads
+      - logs_data:/app/logs
     depends_on:
       - redis
+      - clamav
     networks:
       - social-media-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # React Frontend
+  # React Frontend Service
   frontend:
     build:
       context: ../frontend
       dockerfile: Dockerfile
+      target: development  # Use development stage for hot reload
     container_name: social-media-frontend
     ports:
       - "3000:3000"
     environment:
       - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_API_BASE_URL=http://backend:8000
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true  # For file watching in Docker
     volumes:
       - ../frontend:/app
-      - /app/node_modules
+      - /app/node_modules  # Anonymous volume for node_modules
     depends_on:
       - backend
     networks:
       - social-media-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # Redis for caching and rate limiting
+  # Redis for caching, session management, and task queues
   redis:
     image: redis:7-alpine
     container_name: social-media-redis
     ports:
       - "6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-defaultpassword}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-defaultpassword}
     volumes:
       - redis_data:/data
     networks:
       - social-media-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # ClamAV for malware scanning
+  # ClamAV for malware scanning of downloaded content
   clamav:
     image: clamav/clamav:stable
     container_name: social-media-clamav
     ports:
       - "3310:3310"
+    environment:
+      - CLAMAV_NO_FRESHCLAMD=false
+      - CLAMAV_NO_CLAMD=false
     volumes:
       - clamav_data:/var/lib/clamav
+      - downloads_data:/scan:ro  # Read-only access to downloads for scanning
     networks:
       - social-media-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/clamdcheck.sh"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
 
+  # Nginx reverse proxy (optional, for production-like setup)
+  nginx:
+    image: nginx:alpine
+    container_name: social-media-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - logs_data:/var/log/nginx
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - social-media-network
+    restart: unless-stopped
+    profiles:
+      - production  # Only start with --profile production
+
+# Named volumes for data persistence
 volumes:
   redis_data:
+    driver: local
   clamav_data:
+    driver: local
+  backend_data:
+    driver: local
+  downloads_data:
+    driver: local
+  logs_data:
+    driver: local
 
+# Custom network for service communication
 networks:
   social-media-network:
-    driver: bridge 
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16 

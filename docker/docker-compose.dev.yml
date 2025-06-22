@@ -1,0 +1,36 @@
+version: '3.8'
+
+# Development overrides for docker-compose.yml
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  backend:
+    build:
+      target: development
+    environment:
+      - DEBUG=True
+      - LOG_LEVEL=DEBUG
+      - RELOAD=True
+    volumes:
+      - ../backend:/app
+      - backend_dev_data:/app/data
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level", "debug"]
+
+  frontend:
+    build:
+      target: development
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_DEBUG=true
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    command: ["npm", "start"]
+
+  redis:
+    command: redis-server --appendonly yes --loglevel debug
+
+# Development-specific volumes
+volumes:
+  backend_dev_data:
+    driver: local 

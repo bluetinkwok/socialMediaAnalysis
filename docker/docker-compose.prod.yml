@@ -1,0 +1,42 @@
+version: '3.8'
+
+# Production overrides for docker-compose.yml
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+
+services:
+  backend:
+    build:
+      target: production
+    environment:
+      - DEBUG=False
+      - LOG_LEVEL=INFO
+      - RELOAD=False
+    volumes:
+      - backend_prod_data:/app/data
+      - downloads_prod_data:/app/downloads
+      - logs_prod_data:/app/logs
+    command: ["gunicorn", "main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]
+
+  frontend:
+    build:
+      target: production
+    environment:
+      - NODE_ENV=production
+    # No source code volumes in production
+    command: ["serve", "-s", "build", "-l", "3000"]
+
+  redis:
+    command: redis-server --appendonly yes --save 900 1 --save 300 10 --save 60 10000
+
+  # Enable nginx in production
+  nginx:
+    profiles: []  # Remove production profile to enable by default
+
+# Production-specific volumes
+volumes:
+  backend_prod_data:
+    driver: local
+  downloads_prod_data:
+    driver: local
+  logs_prod_data:
+    driver: local 
