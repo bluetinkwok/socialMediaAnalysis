@@ -1,0 +1,540 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Setup Project Repository and Structure",
+        "description": "Set up the project repository structure, including directories for backend (Python/FastAPI), frontend (React/TypeScript), and deployment (Docker). Initialize Git.",
+        "details": "Create the main project directory. Inside, create `backend/`, `frontend/`, `docker/`. Initialize a git repository in the root directory. Add a basic `.gitignore` file including common ignores for Python, Node.js, and Docker.",
+        "testStrategy": "Verify directory structure is created and git repository is initialized.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Setup Docker Compose Configuration",
+        "description": "Configure Docker Compose for orchestrating the backend, frontend, and potentially a database service.",
+        "details": "Create a `docker-compose.yml` file in the `docker/` directory. Define services for `backend` (using a Python 3.12 image), `frontend` (using a Node.js image for build/serve), and potentially a `db` service (though SQLite is file-based, Docker can manage volumes). Map necessary ports and volumes for code and data persistence.",
+        "testStrategy": "Run `docker-compose build` and `docker-compose config` to ensure the configuration is valid.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Initialize FastAPI Backend Project",
+        "description": "Initialize the Python backend project using FastAPI, set up basic dependencies and application structure.",
+        "details": "Navigate to the `backend/` directory. Initialize a Python virtual environment (`python -m venv venv`). Install FastAPI (`pip install fastapi uvicorn[standard]`). Create a main application file (e.g., `main.py`) and a `requirements.txt`. Define a simple root endpoint (`/`). Structure the project with potential directories for `api/`, `core/`, `db/`, `services/`.",
+        "testStrategy": "Run the FastAPI application using `uvicorn main:app --reload` and access the root endpoint in a browser or with `curl` to verify it's running.",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Initialize React/TypeScript Frontend Project",
+        "description": "Initialize the React.js frontend project with TypeScript, set up basic dependencies and application structure.",
+        "details": "Navigate to the `frontend/` directory. Use Create React App with TypeScript template (`npx create-react-app . --template typescript`) or Vite (`npm create vite@latest . --template react-ts`). Install necessary dependencies (`npm install` or `yarn install`). Clean up boilerplate and set up basic routing if needed (e.g., using `react-router-dom`).",
+        "testStrategy": "Run the frontend application (`npm start` or `yarn dev`) and verify it loads in the browser without errors.",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Setup SQLite Database and Initial Schema",
+        "description": "Design and implement the initial SQLite database schema for storing post metadata, file references, and basic analytics data.",
+        "details": "Using `sqlite3` or an ORM like SQLAlchemy (`pip install sqlalchemy`) with a SQLite backend, define tables for `posts` (id, platform, url, title, content_text, publish_date, download_date, engagement_metrics_json, file_references_json), `files` (id, post_id, file_type, file_path), and potentially `platforms` (id, name). Create the database file and tables on application startup if they don't exist. Use Pydantic models in FastAPI for data validation.",
+        "testStrategy": "Write a script or use the ORM to create the database file and tables. Verify the schema using a SQLite browser or command line.",
+        "priority": "high",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Implement Core Backend API Structure",
+        "description": "Implement the core API structure in FastAPI, including routers for content management and basic data retrieval.",
+        "details": "Create an `api/` directory in the backend. Define API routers (e.g., `api/v1/content.py`, `api/v1/downloads.py`). Implement basic CRUD endpoints for `posts` (e.g., GET `/posts`, GET `/posts/{id}`). Connect these routers to the main FastAPI app. Use SQLAlchemy models and sessions for database interaction.",
+        "testStrategy": "Use tools like Swagger UI (provided by FastAPI) or Postman to test the basic API endpoints for listing and retrieving posts (initially returning mock data or empty lists).",
+        "priority": "high",
+        "dependencies": [
+          3,
+          5
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Develop Base Content Extraction Service",
+        "description": "Develop the base structure for the Content Extraction Service, focusing on web scraping techniques to extract content from various platforms.",
+        "status": "pending",
+        "dependencies": [
+          3,
+          6
+        ],
+        "priority": "high",
+        "details": "Create a `services/` directory in the backend. Implement core web scraping logic using Python libraries. This includes setting up browser automation (e.g., Selenium WebDriver with headless mode or Playwright), handling dynamic content loading (JavaScript rendering), implementing anti-detection measures (user agents, delays, session management, cookies), robust error handling for failed requests, rate limiting, and strategies for potential captcha detection. Consider using libraries like BeautifulSoup for HTML parsing, requests for basic HTTP, yt-dlp for YouTube, instaloader for Instagram, and potentially undetected-chromedriver for enhanced anti-detection.",
+        "testStrategy": "Develop a test suite that uses a mock or controlled test page to verify the base scraping logic, including dynamic content loading, error handling, and basic data extraction. Test anti-detection measures with simple scenarios.",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Implement RedNote Content Downloader",
+        "description": "Implement the downloader module specifically for RedNote content (text, images, videos).",
+        "details": "Create a `services/rednote_downloader.py`. Research RedNote's public API or ethical scraping methods. Use libraries like `requests` and `BeautifulSoup4` (`pip install beautifulsoup4`) for scraping if no API is available, respecting `robots.txt`. Implement functions to fetch content details (text, metadata) and download associated media files (images, videos). Handle different content types.",
+        "testStrategy": "Write unit tests for the RedNote downloader functions, mocking HTTP requests. Test with various RedNote URL types (posts with text, images, videos) to ensure correct data extraction and file download simulation.",
+        "priority": "high",
+        "dependencies": [
+          7,
+          "29"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Implement Instagram Content Downloader",
+        "description": "Implement the downloader module specifically for Instagram content, expanding beyond basic posts to include stories, reels, IGTV, comments, profile information, and handling mixed media within posts.",
+        "status": "pending",
+        "dependencies": [
+          7,
+          "29"
+        ],
+        "priority": "high",
+        "details": "Create a `services/instagram_downloader.py`. This module needs to handle a wide range of Instagram content types:\n- Regular posts (single image/video, carousels with mixed media)\n- Stories (temporary content)\n- Reels (short videos)\n- IGTV (longer videos)\n- Text content (captions, hashtags, mentions)\n- Comments and engagement metrics\n- Story highlights\n- Profile information (bio, links)\n\nResearch current methods for accessing Instagram data, acknowledging that public APIs are highly restricted. Explore specialized libraries and tools like `instaloader`, `instagram-private-api`, or custom Selenium-based solutions. Be aware of and implement strategies to mitigate technical challenges specific to Instagram:\n- Handling login requirements for some content\n- Dealing with dynamic content loading via JavaScript\n- Navigating anti-bot detection systems\n- Managing temporary story content\n- Differentiating and potentially acquiring high-resolution media vs. thumbnails\n- Respecting rate limiting and IP blocking\n- Implementing robust cookie and session management.\n\nAdhere strictly to Instagram's terms of service and ethical data scraping practices, focusing primarily on publicly available data where possible.",
+        "testStrategy": "Write comprehensive unit tests for the Instagram downloader, mocking external calls where necessary. Test the extraction and handling logic for each specified content type: posts (single, carousel), stories, reels, IGTV, text, comments, highlights, and profile info. Include tests to simulate scenarios involving login requirements, dynamic content, and different media resolutions. Consider integration tests to verify the downloader's interaction with Instagram, potentially using a dedicated test account and adhering to rate limits during testing.",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Implement Threads Content Downloader",
+        "description": "Implement the downloader module specifically for Threads content (text-based).",
+        "details": "Create a `services/threads_downloader.py`. Research current methods for accessing Threads data. As a newer platform, this likely involves scraping. Use `requests` and `BeautifulSoup4` or potentially `selenium` (`pip install selenium webdriver-manager`) if content is dynamically loaded, while respecting terms of service. Focus on extracting text content and associated links.",
+        "testStrategy": "Write unit tests for the Threads downloader, mocking external calls. Test with various Threads post URLs to verify text and link extraction.",
+        "priority": "high",
+        "dependencies": [
+          7,
+          "29"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Implement YouTube Content Downloader",
+        "description": "Implement the downloader module specifically for YouTube content (short and long-form videos, thumbnails, transcripts).",
+        "details": "Create a `services/youtube_downloader.py`. Use the `yt-dlp` library (`pip install yt-dlp`), which is a widely used and actively maintained fork of `youtube-dl`. Implement functions to download video files, thumbnails, and fetch metadata like title, description, views, likes. Explore options for downloading transcripts.",
+        "testStrategy": "Write unit tests for the YouTube downloader, mocking `yt-dlp` calls. Test with various YouTube video URLs (short, long) to verify video, thumbnail, metadata, and transcript download simulation.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Implement Data Storage (SQLite & File System)",
+        "description": "Implement the data storage logic to save downloaded content metadata to SQLite and media files to the organized file system.",
+        "details": "Create a `db/storage.py` module. Implement functions to take normalized data from the downloaders. Save post metadata (title, content, dates, engagement) into the `posts` table using SQLAlchemy. Save file paths and types into the `files` table, linked to the post ID. Implement logic to save media files (images, videos) to the `downloads/<platform>/<type>/` directory structure as specified in the PRD. Ensure file naming conventions prevent conflicts.",
+        "testStrategy": "Write integration tests that use mock downloader output and verify that data is correctly inserted into the SQLite database and files are saved to the expected directory structure.",
+        "priority": "high",
+        "dependencies": [
+          5,
+          8,
+          9,
+          10,
+          11
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "Implement Single and Batch Download API Endpoints",
+        "description": "Implement backend API endpoints and logic for handling single URL and batch content downloads.",
+        "details": "Add endpoints like POST `/downloads/single` and POST `/downloads/batch` to the FastAPI application. These endpoints should accept URLs, validate them, determine the platform, call the appropriate downloader service, and save the results using the storage logic. Implement basic error handling for invalid URLs or download failures. For batch processing, consider using background tasks (FastAPI's `BackgroundTasks` or a task queue like Celery for larger scale) to avoid blocking the API.",
+        "testStrategy": "Use Postman or `curl` to send requests to the single and batch download endpoints with valid and invalid URLs for different platforms. Verify that data appears in the database and files are downloaded.",
+        "priority": "high",
+        "dependencies": [
+          6,
+          12
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "Implement Download Progress Tracking and Error Handling",
+        "description": "Implement progress tracking and error handling mechanisms for content downloads.",
+        "details": "Modify the downloader services and storage logic to report progress (e.g., percentage complete, current step) and capture specific errors (e.g., network issues, content not found, parsing errors). Store download status and error messages in the database. Expose an API endpoint (e.g., GET `/downloads/status/{task_id}`) to query the status of a download task (especially for batch/background tasks).",
+        "testStrategy": "Simulate download scenarios (success, network error, invalid URL) and verify that the status and error messages are correctly recorded in the database and accessible via the status API.",
+        "priority": "medium",
+        "dependencies": [
+          13
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "Implement Basic Analytics Engine (Metrics & Scoring)",
+        "description": "Develop the basic Analytics Engine to calculate and store engagement metrics and content performance scores.",
+        "details": "Create an `analytics/` directory in the backend. Implement functions to process downloaded post data. Calculate standard engagement metrics (likes, comments, shares, views - depending on platform availability). Define a simple content performance scoring algorithm based on these metrics (e.g., weighted sum, engagement rate). Store calculated scores and metrics, potentially updating the `posts` table or adding a new `analytics_data` table.",
+        "testStrategy": "Write unit tests for the analytics functions using mock post data with varying engagement numbers. Verify that metrics are calculated correctly and performance scores are assigned as expected.",
+        "priority": "high",
+        "dependencies": [
+          12
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 16,
+        "title": "Implement Basic Trend Identification",
+        "description": "Implement basic trend identification based on content performance and publication dates.",
+        "details": "Extend the Analytics Engine. Implement logic to identify content that performs significantly better than average within a specific time frame or platform. This could involve simple statistical analysis (e.g., z-scores) or thresholding. Store identified trends or flag high-performing content in the database.",
+        "testStrategy": "Generate mock data with clear trends (e.g., a sudden spike in engagement for posts of a certain type). Run the trend identification logic and verify that the expected content is flagged as trending.",
+        "priority": "medium",
+        "dependencies": [
+          15
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 17,
+        "title": "Implement Basic Success Pattern Recognition (Rule-Based)",
+        "description": "Implement initial rule-based success pattern recognition based on basic metadata and performance scores.",
+        "details": "Extend the Analytics Engine. Define simple rules to identify potential success patterns based on available data (e.g., 'posts with images and high engagement rate', 'short videos published on weekends'). Store identified patterns associated with posts in the database.",
+        "testStrategy": "Create mock data that matches the defined rules. Run the pattern recognition logic and verify that the correct patterns are identified and linked to the relevant posts.",
+        "priority": "medium",
+        "dependencies": [
+          15,
+          16
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 18,
+        "title": "Build Frontend Dashboard Page",
+        "description": "Develop the Frontend Dashboard page to display an overview of monitored content, key metrics, and recent activity.",
+        "details": "Create a `Dashboard.tsx` component in the frontend. Fetch data from backend APIs (e.g., total posts, average engagement, recent downloads, top-performing posts). Use a charting library like `react-chartjs-2` (`npm install chart.js react-chartjs-2`) or `recharts` (`npm install recharts`) to visualize key metrics. Design a layout that provides a quick summary.",
+        "testStrategy": "Run the frontend and navigate to the Dashboard. Verify that data is fetched from the backend (using browser developer tools) and displayed correctly, including charts.",
+        "priority": "high",
+        "dependencies": [
+          4,
+          6,
+          15,
+          16
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 19,
+        "title": "Build Frontend Download Center Page",
+        "description": "Develop the Frontend Download Center page with interfaces for single URL input, batch upload, and download queue management.",
+        "details": "Create a `DownloadCenter.tsx` component. Implement input fields for single URLs and a file upload component for batch URLs (e.g., CSV file). Add buttons to trigger download requests to the backend API. Display a list of active and recent download tasks, showing their status and progress (fetching data from the download status API endpoint).",
+        "testStrategy": "Run the frontend. Test the single URL input and batch upload features. Verify that requests are sent to the backend and the download queue displays task status updates.",
+        "priority": "high",
+        "dependencies": [
+          4,
+          6,
+          13,
+          14
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 20,
+        "title": "Build Frontend Content Library Page",
+        "description": "Develop the Frontend Content Library page to display downloaded content, with search and filtering capabilities.",
+        "details": "Create a `ContentLibrary.tsx` component. Fetch the list of downloaded posts from the backend API (e.g., GET `/posts`). Display content in a list or grid format, showing key information like title, platform, date, and performance score. Implement search functionality (filtering the displayed list or sending search queries to the backend) and basic filters (e.g., by platform, date range).",
+        "testStrategy": "Run the frontend and navigate to the Content Library. Verify that downloaded content is displayed. Test the search bar and filters to ensure they correctly narrow down the displayed content.",
+        "priority": "high",
+        "dependencies": [
+          4,
+          6,
+          12
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 21,
+        "title": "Build Frontend Content Detail View",
+        "description": "Implement a detailed view page in the Frontend for individual content items.",
+        "details": "Create a `ContentView.tsx` component, likely accessed via routing from the Content Library. Fetch detailed data for a specific post from the backend API (e.g., GET `/posts/{id}`). Display all available metadata, engagement metrics, performance score, identified patterns, and links/previews to downloaded media files.",
+        "testStrategy": "From the Content Library, click on a content item. Verify that the detailed view loads and displays all associated information correctly.",
+        "priority": "medium",
+        "dependencies": [
+          20
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 22,
+        "title": "Implement AI Analysis: NLP & Sentiment",
+        "description": "Implement AI-powered Natural Language Processing (NLP) for text analysis (content, descriptions, comments) and sentiment analysis.",
+        "details": "Integrate NLP libraries like `spaCy` (`pip install spacy`) or `transformers` from Hugging Face (`pip install transformers`). Create a backend service (`services/nlp_analyzer.py`) to process text data associated with posts (titles, descriptions, extracted text, potentially comments if available). Implement tasks like keyword extraction, topic modeling, and sentiment scoring. Store NLP results in the database, linked to posts.",
+        "testStrategy": "Write unit tests for the NLP analyzer using sample text data. Verify that keywords, topics, and sentiment scores are generated correctly. Check database entries for processed posts to ensure NLP results are stored.",
+        "priority": "medium",
+        "dependencies": [
+          12,
+          17
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 23,
+        "title": "Implement AI Analysis: Computer Vision",
+        "description": "Implement AI-powered Computer Vision for image and video analysis (thumbnails, media files).",
+        "details": "Integrate computer vision libraries like `OpenCV` (`pip install opencv-python`) and `Pillow` (`pip install Pillow`). Create a backend service (`services/cv_analyzer.py`) to process downloaded image and video files. Implement tasks like object detection, scene recognition, color analysis, or extracting keyframes from videos for analysis. Store CV results in the database, linked to posts and files.",
+        "testStrategy": "Write unit tests for the CV analyzer using sample image and video files. Verify that analysis results (e.g., detected objects, scene descriptions) are generated correctly. Check database entries to ensure CV results are stored.",
+        "priority": "medium",
+        "dependencies": [
+          12,
+          17
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 24,
+        "title": "Enhance Success Pattern Recognition with AI Insights",
+        "description": "Enhance success pattern recognition using insights from AI analysis (NLP, CV).",
+        "details": "Refine the Analytics Engine's pattern recognition logic (`analytics/pattern_recognizer.py`). Incorporate NLP features (keywords, sentiment) and CV features (objects, scenes) into the pattern identification rules or algorithms. This could involve more complex rule sets or machine learning models (e.g., clustering or classification if enough data is available). Update the database schema if needed to store more complex pattern data.",
+        "testStrategy": "Create mock data including NLP and CV results. Run the enhanced pattern recognition logic and verify that it identifies patterns that combine metadata, performance, text, and visual features.",
+        "priority": "medium",
+        "dependencies": [
+          17,
+          22,
+          23
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 25,
+        "title": "Implement Actionable Recommendations Engine",
+        "description": "Develop the logic for generating actionable recommendations based on identified success patterns.",
+        "details": "Create a `services/recommendation_engine.py`. Based on the identified success patterns (basic and AI-enhanced), develop logic to suggest elements for content creation (e.g., 'Use images with faces', 'Include positive sentiment keywords', 'Focus on short videos about [topic]'). Store recommendations linked to patterns or provide them via an API endpoint.",
+        "testStrategy": "Given a set of identified patterns, run the recommendation engine and verify that the generated recommendations are relevant and actionable based on the pattern definitions.",
+        "priority": "medium",
+        "dependencies": [
+          17,
+          24
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 26,
+        "title": "Build Frontend Analytics & Insights Page",
+        "description": "Develop the Frontend Analytics & Insights page to visualize performance, patterns, and recommendations.",
+        "details": "Create an `AnalyticsInsights.tsx` component. Fetch data related to overall performance trends, identified patterns, and recommendations from backend APIs. Use charting libraries to visualize trends and performance comparisons. Design UI elements to display success patterns and present actionable recommendations clearly.",
+        "testStrategy": "Run the frontend and navigate to the Analytics & Insights page. Verify that data is fetched and visualizations/recommendations are displayed correctly.",
+        "priority": "high",
+        "dependencies": [
+          4,
+          6,
+          17,
+          24,
+          25
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 27,
+        "title": "Implement Automated Scheduling for Monitoring",
+        "description": "Implement automated scheduling for channel/account monitoring and regular content updates.",
+        "details": "Integrate a scheduling library like `APScheduler` (`pip install apscheduler`) or set up Celery with a broker like Redis (`pip install celery redis`). Create backend tasks that periodically check specified channels/accounts for new content using the downloader services. Configure scheduling intervals and limits as per PRD. Store monitoring configurations in the database.",
+        "testStrategy": "Configure a test channel for monitoring with a short interval. Verify that the scheduler triggers the download task and new content from the channel is downloaded and stored.",
+        "priority": "medium",
+        "dependencies": [
+          13
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 28,
+        "title": "Finalize Docker Compose for Deployment",
+        "description": "Finalize Docker Compose configuration for production deployment, including persistent storage (volumes) and environment variables.",
+        "details": "Update `docker-compose.yml` to include production-ready configurations. Ensure volumes are correctly set up for the SQLite database file and the downloaded content directory (`downloads/`). Configure environment variables for application settings (e.g., API keys, database path). Add build contexts and commands for creating production images.",
+        "testStrategy": "Build production Docker images (`docker-compose build`). Run the application using `docker-compose up -d`. Verify that services start correctly, data persists across container restarts, and the application is accessible.",
+        "priority": "medium",
+        "dependencies": [
+          2,
+          3,
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 29,
+        "title": "Set Up Web Scraping Infrastructure with Anti-Detection Measures",
+        "description": "Establish a robust web scraping infrastructure using Selenium WebDriver with headless mode, undetected-chromedriver, user agent rotation, proxy support, request throttling, session management, and captcha detection strategies to enable reliable content extraction without APIs.",
+        "details": "Implement the web scraping infrastructure primarily in the backend services directory. Use Selenium WebDriver configured to run in headless mode for browser automation to handle dynamic JavaScript-rendered content. Integrate undetected-chromedriver to bypass common bot detection mechanisms employed by websites. Implement user agent rotation by maintaining a pool of diverse user agent strings to simulate requests from different browsers and devices. Incorporate proxy support with IP rotation to distribute requests across multiple IP addresses, reducing the risk of IP bans. Implement request throttling with randomized delays and exponential backoff strategies to mimic human browsing behavior and avoid triggering rate limits. Manage sessions and cookies effectively to maintain stateful interactions with target websites. Develop captcha detection mechanisms that can identify when a captcha challenge is presented and either pause scraping or trigger appropriate solving workflows. Ensure the infrastructure is modular and extensible to support adding new anti-detection techniques as needed. Follow best practices for ethical scraping, including respecting robots.txt where applicable and avoiding excessive load on target sites.",
+        "testStrategy": "Verify that Selenium WebDriver launches in headless mode and can navigate to dynamic content pages successfully. Test undetected-chromedriver integration by accessing websites known for bot detection and confirm scraping proceeds without blocks. Validate user agent rotation by logging outgoing requests and confirming varied user agents are used. Test proxy integration by routing requests through different proxies and confirming IP changes. Simulate high-frequency requests and verify that request throttling delays are applied and exponential backoff triggers on failures. Confirm session persistence by checking cookies and login states are maintained across requests. Trigger captcha challenges on test sites and verify detection mechanisms respond appropriately by pausing or flagging the scraper. Conduct end-to-end scraping tests on sample target sites to ensure content is extracted reliably without detection or blocking. Monitor logs for errors related to anti-detection failures and adjust configurations accordingly.",
+        "status": "pending",
+        "dependencies": [
+          3,
+          7
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 30,
+        "title": "Implement yt-dlp YouTube Downloader Integration",
+        "description": "Integrate yt-dlp library to enable downloading of YouTube videos, thumbnails, metadata, and transcripts, supporting both Shorts and regular videos with quality selection and progress tracking.",
+        "details": "1. Install yt-dlp as a Python dependency using pip (`python3 -m pip install -U yt-dlp[default]`).\n2. Create a new service module `services/youtube_downloader.py` to encapsulate all YouTube downloading logic.\n3. Use yt-dlp's Python API to implement functions for:\n   - Downloading video files with selectable quality formats.\n   - Extracting thumbnails.\n   - Fetching metadata such as title, description, view count, likes, and upload date.\n   - Extracting transcripts or captions if available.\n4. Ensure support for both YouTube Shorts and regular videos by handling their URLs appropriately.\n5. Implement download progress tracking by leveraging yt-dlp's progress hooks, storing progress status and any errors in the database.\n6. Integrate error handling for network issues, unavailable content, or format errors.\n7. Expose the downloader functionality through backend API endpoints for single and batch downloads, coordinating with existing download management.\n8. Ensure the module is compatible with Python 3.9+ and follows project coding standards.\n9. Document usage and configuration options for quality selection and progress reporting.\n\nThis integration will provide a reliable, feature-rich YouTube content downloader leveraging yt-dlp's capabilities, filling the gap due to lack of official YouTube download APIs.",
+        "testStrategy": "- Write unit tests mocking yt-dlp calls to simulate video, thumbnail, metadata, and transcript downloads.\n- Test with various YouTube URLs including Shorts and regular videos to verify correct handling.\n- Verify quality selection by requesting different video formats and confirming correct files are downloaded.\n- Simulate download progress and error scenarios to ensure progress tracking and error reporting are accurate and stored.\n- Use API endpoints to trigger downloads and confirm that downloaded content and metadata are correctly saved in the database.\n- Perform integration tests with the overall download management system to ensure smooth operation.\n- Monitor logs and database entries during tests to confirm no unexpected failures occur.",
+        "status": "pending",
+        "dependencies": [
+          3,
+          7,
+          13,
+          14
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 31,
+        "title": "Implement Input Security and Validation System",
+        "description": "Implement comprehensive input security including URL validation, malicious URL detection, input sanitization, rate limiting, and file type validation.",
+        "details": "Create security validation module with URL regex validation, domain whitelist/blacklist, malicious URL detection using threat intelligence APIs, input sanitization to prevent XSS/SQL injection/command injection, rate limiting per user and IP using slowapi and Redis, file type validation with MIME checking and file signature validation, and file size limits. Use libraries: validators, urllib3, tldextract, python-magic, slowapi, redis.",
+        "testStrategy": "Test with malicious URLs, oversized files, injection attempts, and rate limit scenarios to verify all security measures work correctly.",
+        "priority": "high",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 32,
+        "title": "Implement Content Security and Malware Protection",
+        "description": "Implement file scanning, content filtering, quarantine system, and metadata sanitization for downloaded content.",
+        "details": "Integrate ClamAV for malware scanning, implement AI-based inappropriate content detection, create file quarantine system for suspicious files, strip EXIF and metadata from images/videos, implement safe file storage with proper permissions, and set up content filtering rules. Use libraries: clamd, python-magic, PIL for EXIF removal, yara-python for pattern detection.",
+        "testStrategy": "Test with known malware samples, inappropriate content, and files with metadata to verify scanning and filtering works correctly.",
+        "priority": "high",
+        "dependencies": [
+          12,
+          31
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 33,
+        "title": "Implement Authentication and Authorization System",
+        "description": "Implement secure JWT-based authentication, role-based access control, password security, and session management.",
+        "details": "Implement JWT token authentication using python-jose, password hashing with bcrypt using passlib, role-based access control (Admin/User/Viewer), secure session management with timeout, optional 2FA support using pyotp, and password complexity requirements. Include login/logout endpoints, token refresh, and user management.",
+        "testStrategy": "Test authentication flows, token validation, role-based access, password security, and session timeout scenarios.",
+        "priority": "high",
+        "dependencies": [
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 34,
+        "title": "Implement API Security and HTTPS Enforcement",
+        "description": "Secure API endpoints with CORS configuration, request validation, response sanitization, and HTTPS enforcement.",
+        "details": "Configure CORS middleware properly, implement Pydantic models for all API inputs, sanitize all API responses, add security headers, implement HTTPS enforcement, secure error handling without information leakage, and add trusted host middleware. Use FastAPI security features and middleware.",
+        "testStrategy": "Test API security with various attack vectors, verify CORS policies, check HTTPS enforcement, and validate secure error handling.",
+        "priority": "high",
+        "dependencies": [
+          6,
+          33
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 35,
+        "title": "Implement Data Encryption and Privacy Controls",
+        "description": "Implement database encryption, file encryption, privacy controls, and GDPR/CCPA compliance features.",
+        "details": "Encrypt sensitive database fields using cryptography library, implement file encryption for stored media, add data retention policies, implement GDPR compliance features (data export, deletion), secure key management and rotation, and privacy controls for user data. Use sqlalchemy-utils for database encryption.",
+        "testStrategy": "Test data encryption/decryption, privacy controls, data export/deletion, and compliance features.",
+        "priority": "medium",
+        "dependencies": [
+          5,
+          33
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 36,
+        "title": "Implement Container Security and Docker Hardening",
+        "description": "Secure Docker containers with hardening measures, non-root users, network isolation, and secrets management.",
+        "details": "Use minimal base images (python:3.12-slim), create non-root users for container execution, implement container network isolation, use Docker secrets for sensitive data, set resource limits (CPU, memory, disk), scan containers for vulnerabilities, and implement proper file permissions and security headers.",
+        "testStrategy": "Test container security with vulnerability scans, verify non-root execution, test network isolation, and validate secrets management.",
+        "priority": "medium",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 37,
+        "title": "Implement Security Logging and Monitoring",
+        "description": "Implement comprehensive security event logging, real-time monitoring, intrusion detection, and audit trails.",
+        "details": "Implement security event logging for failed logins and suspicious activities, set up real-time monitoring with intrusion detection, create automated log analysis and alerting, implement comprehensive audit trails, add compliance reporting features, and monitor for anomalies. Use structlog, python-json-logger, and prometheus-client.",
+        "testStrategy": "Test security event logging, monitoring alerts, intrusion detection, and audit trail completeness.",
+        "priority": "medium",
+        "dependencies": [
+          33,
+          34
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 38,
+        "title": "Implement Vulnerability Management and Security Testing",
+        "description": "Implement vulnerability scanning, security testing, dependency management, and security compliance validation.",
+        "details": "Set up dependency scanning with pip-audit and safety, implement static code analysis with bandit and semgrep, add security headers and CSP policies, set up automated security patch management, implement penetration testing procedures, and create security compliance validation. Include security testing in CI/CD pipeline.",
+        "testStrategy": "Run vulnerability scans, security tests, static analysis, and validate security compliance measures.",
+        "priority": "low",
+        "dependencies": [
+          28,
+          37
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-06-22T11:33:57.173Z",
+      "updated": "2025-06-22T11:43:21.496Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
