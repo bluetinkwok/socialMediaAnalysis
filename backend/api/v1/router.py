@@ -1,21 +1,23 @@
 """
-API v1 Router - Main router for API version 1
+Main API router that includes all v1 endpoints
 """
 
 from fastapi import APIRouter
 
-# Import individual route modules
-from . import health, platforms
+from .health import router as health_router
+from .platforms import router as platforms_router
+from .posts import router as posts_router
+from .downloads import router as downloads_router
 
 # Create main API router
 api_router = APIRouter()
 
-# Include individual routers
-api_router.include_router(health.router, prefix="/health", tags=["health"])
-api_router.include_router(platforms.router, prefix="/platforms", tags=["platforms"])
+# Include all sub-routers
+api_router.include_router(health_router, prefix="/health", tags=["health"])
+api_router.include_router(platforms_router, prefix="/platforms", tags=["platforms"])
+api_router.include_router(posts_router, prefix="/posts", tags=["posts"])
+api_router.include_router(downloads_router, prefix="/downloads", tags=["downloads"])
 
 # Additional routers will be added as we develop them:
-# from . import posts, downloads, analytics
-# api_router.include_router(posts.router, prefix="/posts", tags=["posts"])
-# api_router.include_router(downloads.router, prefix="/downloads", tags=["downloads"])
+# from . import analytics
 # api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"]) 
