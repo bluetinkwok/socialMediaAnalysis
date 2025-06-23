@@ -8,6 +8,7 @@ from .health import router as health_router
 from .platforms import router as platforms_router
 from .posts import router as posts_router
 from .downloads import router as downloads_router
+# from .extraction import router as extraction_router  # Temporarily disabled
 
 # Create main API router
 api_router = APIRouter()
@@ -20,4 +21,3 @@ api_router.include_router(downloads_router, prefix="/downloads", tags=["download
 
 # Additional routers will be added as we develop them:
 # from . import analytics
-# api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"]) 

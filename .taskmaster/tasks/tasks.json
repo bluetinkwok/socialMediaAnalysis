@@ -75,8 +75,9 @@
           3,
           5
         ],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [],
+        "completionDetails": "The core API structure has been implemented successfully, with basic CRUD endpoints for posts and connections to the main FastAPI app."
       },
       {
         "id": 7,
