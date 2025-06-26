@@ -30,6 +30,12 @@ yt-dlp==2023.12.30
 # Security and validation
 bcrypt==4.1.2
 passlib[bcrypt]==1.7.4
+validators>=0.22.0
+urllib3>=2.0.0
+tldextract>=5.1.0
+python-magic>=0.4.27
+slowapi>=0.1.9
+redis>=5.0.0
 
 # Development and testing dependencies
 pytest==7.4.3
@@ -40,3 +46,9 @@ coverage==7.3.2
 # Additional utilities
 pillow==10.1.0
 aiofiles==23.2.1
+
+# Anti-detection scraping dependencies
+undetected-chromedriver>=3.5.5
+fake-useragent>=1.5.1
+selenium-stealth>=1.0.6
+instaloader>=4.10.3

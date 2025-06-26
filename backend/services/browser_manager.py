@@ -73,7 +73,8 @@ class BrowserManager:
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-plugins")
         options.add_argument("--disable-images")
-        options.add_argument("--disable-javascript")  # Can be removed if JS is needed
+        # JavaScript is needed for Threads content loading
+        # options.add_argument("--disable-javascript")  # Disabled for dynamic content
         options.add_argument("--disable-css")
         
         # Privacy and security
@@ -139,7 +140,19 @@ class BrowserManager:
         try:
             if self.browser_type == "chrome":
                 options = self._get_chrome_options()
-                service = ChromeService(ChromeDriverManager().install())
+                
+                # Use ChromeDriverManager to automatically get the correct version
+                # This ensures ChromeDriver version matches the installed Chrome browser
+                driver_path = ChromeDriverManager().install()
+                # Ensure we get the actual chromedriver executable, not other files
+                if os.path.basename(driver_path) != 'chromedriver':
+                    driver_dir = os.path.dirname(driver_path)
+                    actual_driver = os.path.join(driver_dir, 'chromedriver')
+                    if os.path.exists(actual_driver):
+                        driver_path = actual_driver
+                service = ChromeService(driver_path)
+                logger.info(f"Using managed chromedriver: {driver_path}")
+                
                 self.driver = webdriver.Chrome(service=service, options=options)
             elif self.browser_type == "firefox":
                 options = self._get_firefox_options()
