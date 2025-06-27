@@ -150,6 +150,24 @@ class ApiService {
     }
   }
 
+  async getDownloadJobStatus(id: string): Promise<any> {
+    try {
+      const response = await this.client.get(`/api/v1/downloads/${id}/status`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async retryDownloadJob(id: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.client.post(`/api/v1/downloads/${id}/retry`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
   // Analytics
   async getAnalytics(): Promise<AnalyticsData> {
     try {

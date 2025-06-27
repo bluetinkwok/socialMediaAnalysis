@@ -11,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 
 from main import app
 from db.database import get_database
-from db.models import Base, Post, MediaFile
+from db.models import Base, Post, MediaFile, DownloadJob, DownloadStatus, PlatformType
 from db.schemas import PlatformType
 
 # Test database setup
@@ -381,7 +381,148 @@ class TestDownloadEndpoints:
             threads_platform = next(p for p in platforms if p["platform"] == "threads")
             assert threads_platform["is_available"] is True
             assert "threads.net" in threads_platform["supported_domains"]
-    
+
+    def test_get_job_status_success(self, client, setup_test_db):
+        """Test getting job status for an existing job"""
+        from datetime import datetime, timedelta
+        
+        # Create a test job in the database
+        db = next(setup_test_db)
+        test_job = DownloadJob(
+            job_id="test-job-123",
+            platform=PlatformType.THREADS,
+            urls=["https://www.threads.net/@test/post/123"],
+            status=DownloadStatus.IN_PROGRESS,
+            progress_percentage=75.5,
+            processed_items=15,
+            total_items=20,
+            error_count=1,
+            errors=["Minor warning: Some metadata missing"],
+            started_at=datetime.utcnow() - timedelta(minutes=5),
+            created_at=datetime.utcnow() - timedelta(minutes=6),
+            updated_at=datetime.utcnow()
+        )
+        db.add(test_job)
+        db.commit()
+        
+        # Test the status endpoint
+        response = client.get("/api/v1/downloads/test-job-123/status")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        
+        status_info = data["data"]
+        assert status_info["job_id"] == "test-job-123"
+        assert status_info["status"] == "in_progress"
+        assert status_info["progress"]["percentage"] == 75.5
+        assert status_info["progress"]["processed_items"] == 15
+        assert status_info["progress"]["total_items"] == 20
+        assert status_info["progress"]["remaining_items"] == 5
+        assert status_info["platform"] == "threads"
+        assert status_info["error_handling"]["error_count"] == 1
+        assert status_info["error_handling"]["has_errors"] is True
+        assert len(status_info["error_handling"]["errors"]) == 1
+        
+        # Check timing information
+        assert "timing" in status_info
+        assert "elapsed_seconds" in status_info["timing"]
+        assert "estimated_remaining_seconds" in status_info["timing"]
+        assert "estimated_completion" in status_info["timing"]
+        
+        # Check processing rate
+        assert "processing_rate" in status_info["progress"]
+        assert status_info["progress"]["processing_rate"] > 0
+
+    def test_get_job_status_not_found(self, client, setup_test_db):
+        """Test getting job status for non-existent job"""
+        
+        response = client.get("/api/v1/downloads/non-existent-job/status")
+        
+        assert response.status_code == 404
+        data = response.json()
+        assert "not found" in data["detail"].lower()
+
+    def test_get_job_status_completed_job(self, client, setup_test_db):
+        """Test getting job status for a completed job"""
+        from datetime import datetime, timedelta
+        
+        # Create a completed test job
+        db = next(setup_test_db)
+        test_job = DownloadJob(
+            job_id="completed-job-456",
+            platform=PlatformType.THREADS,
+            urls=["https://www.threads.net/@test/post/456"],
+            status=DownloadStatus.COMPLETED,
+            progress_percentage=100.0,
+            processed_items=10,
+            total_items=10,
+            error_count=2,
+            errors=["Warning 1", "Warning 2"],
+            started_at=datetime.utcnow() - timedelta(minutes=10),
+            completed_at=datetime.utcnow() - timedelta(minutes=5),
+            created_at=datetime.utcnow() - timedelta(minutes=12),
+            updated_at=datetime.utcnow() - timedelta(minutes=5)
+        )
+        db.add(test_job)
+        db.commit()
+        
+        # Test the status endpoint
+        response = client.get("/api/v1/downloads/completed-job-456/status")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        
+        status_info = data["data"]
+        assert status_info["status"] == "completed"
+        assert status_info["progress"]["percentage"] == 100.0
+        
+        # Check completion summary
+        assert "completion_summary" in status_info
+        assert status_info["completion_summary"]["success_rate"] == 80.0  # 8/10 successful
+        assert status_info["completion_summary"]["successful_items"] == 8
+        assert status_info["completion_summary"]["failed_items"] == 2
+
+    def test_get_job_status_failed_job(self, client, setup_test_db):
+        """Test getting job status for a failed job"""
+        from datetime import datetime, timedelta
+        
+        # Create a failed test job
+        db = next(setup_test_db)
+        test_job = DownloadJob(
+            job_id="failed-job-789",
+            platform=PlatformType.THREADS,
+            urls=["https://www.threads.net/@test/post/789"],
+            status=DownloadStatus.FAILED,
+            progress_percentage=25.0,
+            processed_items=2,
+            total_items=8,
+            error_count=3,
+            errors=["Network timeout", "Authentication failed", "Content not found"],
+            started_at=datetime.utcnow() - timedelta(minutes=15),
+            created_at=datetime.utcnow() - timedelta(minutes=20),
+            updated_at=datetime.utcnow() - timedelta(minutes=10)
+        )
+        db.add(test_job)
+        db.commit()
+        
+        # Test the status endpoint
+        response = client.get("/api/v1/downloads/failed-job-789/status")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        
+        status_info = data["data"]
+        assert status_info["status"] == "failed"
+        assert status_info["progress"]["percentage"] == 25.0
+        
+        # Check failure info
+        assert "failure_info" in status_info
+        assert status_info["failure_info"]["primary_error"] == "Content not found"
+        assert status_info["failure_info"]["total_errors"] == 3
+
     def test_download_with_files_supported(self, client, setup_test_db):
         """Test download with files when downloader supports it"""
         

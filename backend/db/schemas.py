@@ -27,7 +27,8 @@ class ContentType(str, Enum):
 class DownloadStatus(str, Enum):
     """Download job status"""
     PENDING = "pending"
-    PROCESSING = "processing"
+    IN_PROGRESS = "in_progress"
+    PROCESSING = "processing"  # Keep for backward compatibility
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -186,6 +187,7 @@ class DownloadJobUpdate(BaseSchema):
 
 class DownloadJob(DownloadJobBase):
     id: int
+    job_id: str
     status: DownloadStatus
     total_items: int = 0
     processed_items: int = 0

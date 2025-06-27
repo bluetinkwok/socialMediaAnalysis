@@ -69,13 +69,38 @@ export interface DownloadOptions {
 
 export interface DownloadJob {
   id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'in_progress' | 'completed' | 'failed';
   progress: number;
   totalItems: number;
   processedItems: number;
   errors: string[];
   createdAt: Date;
   completedAt?: Date;
+}
+
+export interface DownloadJobProgress {
+  percentage: number;
+  processed_items: number;
+  total_items: number;
+  current_step?: string;
+}
+
+export interface DownloadJobTiming {
+  started_at: string;
+  elapsed_time: number;
+  estimated_completion?: string;
+  processing_rate?: number;
+}
+
+export interface DownloadJobStatus {
+  job_id: string;
+  status: 'pending' | 'processing' | 'in_progress' | 'completed' | 'failed';
+  progress: DownloadJobProgress;
+  timing: DownloadJobTiming;
+  errors: any[];
+  metadata?: any;
+  urls?: string[];
+  platform?: Platform;
 }
 
 // Analytics types

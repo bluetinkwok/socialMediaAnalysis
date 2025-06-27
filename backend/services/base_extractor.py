@@ -24,6 +24,7 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 
 from .browser_manager import BrowserManager
 from .rate_limiter import RateLimiter
+from .progress_tracker import ProgressTracker, ProgressStep, LoggingProgressCallback
 from db.models import PlatformType, ContentType
 
 logger = logging.getLogger(__name__)
@@ -46,7 +47,8 @@ class BaseContentExtractor(ABC):
         rate_limit_delay: float = 2.0,
         max_retries: int = 3,
         timeout: int = 30,
-        use_browser: bool = True
+        use_browser: bool = True,
+        progress_tracker: ProgressTracker = None
     ):
         self.platform = platform
         self.rate_limiter = RateLimiter(delay=rate_limit_delay)
@@ -54,6 +56,7 @@ class BaseContentExtractor(ABC):
         self.max_retries = max_retries
         self.timeout = timeout
         self.session = None
+        self.progress_tracker = progress_tracker
         
         # User agents for rotation
         self.user_agents = [
@@ -89,6 +92,21 @@ class BaseContentExtractor(ABC):
             self.session.close()
         if self.browser_manager:
             self.browser_manager.quit()
+    
+    async def _update_progress(self, step: ProgressStep, message: str = "", item_progress: float = 0.0):
+        """Update progress if tracker is available"""
+        if self.progress_tracker:
+            await self.progress_tracker.update_step(step, message, item_progress)
+    
+    async def _report_error(self, error: str, warning: bool = False):
+        """Report error if tracker is available"""
+        if self.progress_tracker:
+            await self.progress_tracker.report_error(error, warning)
+    
+    async def _start_progress(self, total_items: int = 1):
+        """Start progress tracking if tracker is available"""
+        if self.progress_tracker:
+            await self.progress_tracker.start(total_items)
             
     def _get_random_delay(self, base_delay: float = None) -> float:
         """Get a random delay to avoid detection"""

@@ -5,7 +5,7 @@ Downloads API endpoints for managing download jobs and operations
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 import re
 import asyncio
@@ -27,6 +27,13 @@ from services.youtube_downloader import YouTubeDownloader
 from services.instagram_downloader import InstagramDownloader  
 from services.threads_downloader import ThreadsDownloader
 from services.rednote_downloader import RedNoteDownloader
+from services.progress_tracker import (
+    ProgressTracker, 
+    DatabaseProgressCallback, 
+    WebSocketProgressCallback,
+    LoggingProgressCallback
+)
+from services.websocket_manager import websocket_manager
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -116,7 +123,6 @@ async def get_download_stats(
         ).group_by(DownloadJob.platform).all()
         
         # Recent activity (last 24 hours)
-        from datetime import timedelta
         day_ago = datetime.utcnow() - timedelta(days=1)
         recent_jobs = db.query(DownloadJob).filter(DownloadJob.created_at >= day_ago).count()
         
@@ -251,6 +257,127 @@ async def get_download_job(
             detail=f"Failed to retrieve download job: {str(e)}"
         )
 
+@router.get("/{job_id}/status", response_model=ApiResponse)
+async def get_job_status(
+    job_id: str,
+    db: Session = Depends(get_database)
+):
+    """
+    Get detailed status information for a download job including progress tracking
+    
+    This endpoint provides comprehensive status information including:
+    - Current progress percentage and step
+    - Processing statistics and timing
+    - Error details and warnings
+    - Estimated completion time
+    """
+    try:
+        job = db.query(DownloadJob).filter(DownloadJob.job_id == job_id).first()
+        
+        if not job:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Download job with ID {job_id} not found"
+            )
+        
+        # Calculate additional status information
+        status_info = {
+            "job_id": job_id,
+            "status": job.status.value,
+            "progress": {
+                "percentage": job.progress_percentage,
+                "processed_items": job.processed_items,
+                "total_items": job.total_items,
+                "remaining_items": job.total_items - job.processed_items if job.total_items > 0 else 0
+            },
+            "timing": {
+                "created_at": job.created_at,
+                "started_at": job.started_at,
+                "completed_at": job.completed_at,
+                "updated_at": job.updated_at
+            },
+            "platform": job.platform.value,
+            "urls": job.urls,
+            "error_handling": {
+                "error_count": job.error_count,
+                "errors": job.errors or [],
+                "has_errors": job.error_count > 0
+            }
+        }
+        
+        # Calculate elapsed time and estimated completion
+        if job.started_at:
+            elapsed_time = (datetime.utcnow() - job.started_at).total_seconds()
+            status_info["timing"]["elapsed_seconds"] = elapsed_time
+            
+            # Estimate completion time if job is in progress
+            if job.status == DownloadStatus.IN_PROGRESS and job.progress_percentage > 0:
+                estimated_total_time = elapsed_time / (job.progress_percentage / 100)
+                estimated_remaining_time = estimated_total_time - elapsed_time
+                status_info["timing"]["estimated_remaining_seconds"] = max(0, estimated_remaining_time)
+                status_info["timing"]["estimated_completion"] = datetime.utcnow() + timedelta(seconds=estimated_remaining_time)
+        
+        # Add processing rate if applicable
+        if job.started_at and job.processed_items > 0:
+            elapsed_time = (datetime.utcnow() - job.started_at).total_seconds()
+            if elapsed_time > 0:
+                status_info["progress"]["processing_rate"] = job.processed_items / elapsed_time  # items per second
+        
+        # Add status-specific information
+        if job.status == DownloadStatus.COMPLETED:
+            status_info["completion_summary"] = {
+                "success_rate": ((job.processed_items - job.error_count) / job.processed_items * 100) if job.processed_items > 0 else 0,
+                "successful_items": job.processed_items - job.error_count,
+                "failed_items": job.error_count
+            }
+        elif job.status == DownloadStatus.FAILED:
+            status_info["failure_info"] = {
+                "primary_error": job.errors[-1] if job.errors else "Unknown error",
+                "total_errors": len(job.errors) if job.errors else 0
+            }
+        
+        return ApiResponse(
+            success=True,
+            data=status_info,
+            message=f"Retrieved detailed status for job {job_id}"
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting job status: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve job status: {str(e)}"
+        )
+
+
+async def process_single_download(
+    url: str, 
+    platform: Optional[PlatformType] = None,
+    download_files: bool = False,
+    db: Session = None
+) -> DownloadResult:
+    """
+    Process a single URL download (backward compatibility wrapper)
+    
+    Args:
+        url: URL to download
+        platform: Platform type (auto-detected if None)
+        download_files: Whether to download media files
+        db: Database session
+        
+    Returns:
+        Download result
+    """
+    return await process_single_download_with_progress(
+        url=url,
+        platform=platform,
+        download_files=download_files,
+        db=db,
+        progress_tracker=None
+    )
+
 
 @router.post("/", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
 async def create_download_job(
@@ -258,7 +385,7 @@ async def create_download_job(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_database)
 ):
-    """Create a new download job"""
+    """Create a new download job with progress tracking"""
     try:
         # Generate unique job ID
         job_id = str(uuid.uuid4())
@@ -273,16 +400,15 @@ async def create_download_job(
         db.commit()
         db.refresh(db_job)
         
-        # Add background task to process the download
-        # Note: This would typically call a service function to handle the actual download
-        # background_tasks.add_task(process_download_job, job_id)
+        # Add background task to process the download with progress tracking
+        background_tasks.add_task(process_download_job_with_progress, job_id)
         
         job_response = DownloadJobSchema.model_validate(db_job)
         
         return ApiResponse(
             success=True,
             data=job_response,
-            message=f"Download job created successfully with ID {job_id}"
+            message=f"Download job created successfully with ID {job_id}. Processing started with progress tracking."
         )
     
     except Exception as e:
@@ -429,7 +555,7 @@ async def retry_download_job(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_database)
 ):
-    """Retry a failed download job"""
+    """Retry a failed download job with progress tracking"""
     try:
         db_job = db.query(DownloadJob).filter(DownloadJob.job_id == job_id).first()
         if not db_job:
@@ -450,19 +576,20 @@ async def retry_download_job(
         db_job.updated_at = datetime.utcnow()
         db_job.error_message = None
         db_job.progress_percentage = 0
+        db_job.processed_items = 0
         
         db.commit()
         db.refresh(db_job)
         
-        # Add background task to process the download
-        # background_tasks.add_task(process_download_job, job_id)
+        # Add background task to process the retry with progress tracking
+        background_tasks.add_task(process_download_job_with_progress, job_id)
         
         job_response = DownloadJobSchema.model_validate(db_job)
         
         return ApiResponse(
             success=True,
             data=job_response,
-            message=f"Download job {job_id} queued for retry"
+            message=f"Download job {job_id} retry started with progress tracking"
         )
     
     except HTTPException:
@@ -530,32 +657,118 @@ def detect_platform_from_url(url: str) -> Optional[PlatformType]:
     
     return None
 
-async def process_single_download(
-    url: str, 
+async def process_download_job_with_progress(job_id: str):
+    """
+    Background task to process a download job with progress tracking
+    
+    Args:
+        job_id: The job ID to process
+    """
+    from db.database import SessionLocal
+    db = SessionLocal()
+    
+    try:
+        # Get the job from database
+        db_job = db.query(DownloadJob).filter(DownloadJob.job_id == job_id).first()
+        if not db_job:
+            logger.error(f"Job {job_id} not found in database")
+            return
+        
+        # Set up progress tracking
+        progress_tracker = ProgressTracker(
+            task_id=job_id,
+            callbacks=[
+                DatabaseProgressCallback(db_session=db),
+                WebSocketProgressCallback(websocket_manager),
+                LoggingProgressCallback(logger, log_level=logging.INFO)
+            ]
+        )
+        
+        # Start progress tracking
+        progress_tracker.start_progress()
+        
+        try:
+            # Determine if this is a single URL or batch
+            urls = []
+            if db_job.url:
+                urls = [db_job.url]
+            elif db_job.urls:
+                urls = db_job.urls
+            else:
+                raise ValueError("No URLs found in job")
+            
+            # Process URLs
+            if len(urls) == 1:
+                # Single URL processing
+                result = await process_single_download_with_progress(
+                    url=urls[0],
+                    platform=db_job.platform,
+                    download_files=db_job.download_files,
+                    db=db,
+                    progress_tracker=progress_tracker
+                )
+                
+                if result.success:
+                    progress_tracker.complete_progress(f"Successfully processed URL from {result.platform}")
+                else:
+                    progress_tracker.report_error(result.error or "Unknown error occurred")
+                    
+            else:
+                # Batch processing
+                await process_batch_download_with_progress(
+                    urls=urls,
+                    download_files=db_job.download_files,
+                    db=db,
+                    progress_tracker=progress_tracker
+                )
+                
+        except Exception as e:
+            logger.error(f"Error processing job {job_id}: {str(e)}")
+            progress_tracker.report_error(f"Job processing failed: {str(e)}")
+            
+    except Exception as e:
+        logger.error(f"Critical error in job {job_id}: {str(e)}")
+    finally:
+        db.close()
+
+
+async def process_single_download_with_progress(
+    url: str,
     platform: Optional[PlatformType] = None,
     download_files: bool = False,
-    db: Session = None
+    db: Session = None,
+    progress_tracker: Optional[ProgressTracker] = None
 ) -> DownloadResult:
     """
-    Process a single URL download
+    Process a single URL download with progress tracking
     
     Args:
         url: URL to download
         platform: Platform type (auto-detected if None)
         download_files: Whether to download media files
         db: Database session
+        progress_tracker: Progress tracker instance
         
     Returns:
         Download result
     """
     try:
         # Validate URL
+        if progress_tracker:
+            progress_tracker.update_progress(
+                step="VALIDATING_URL",
+                message="Validating URL format"
+            )
+            
         validation_result = url_validator.validate_url_format(url)
         if not validation_result['is_valid']:
+            error_msg = f"Invalid URL: {validation_result.get('error', 'Unknown validation error')}"
+            if progress_tracker:
+                progress_tracker.report_error(error_msg)
             return DownloadResult(
                 success=False,
                 url=url,
-                error=f"Invalid URL: {validation_result.get('error', 'Unknown validation error')}"
+                error=error_msg
             )
         
         # Detect platform if not provided
@@ -563,29 +776,39 @@ async def process_single_download(
             platform = detect_platform_from_url(url)
             
         if platform is None:
+            error_msg = "Unsupported platform or unable to detect platform from URL"
+            if progress_tracker:
+                progress_tracker.report_error(error_msg)
             return DownloadResult(
                 success=False,
                 url=url,
-                error="Unsupported platform or unable to detect platform from URL"
+                error=error_msg
             )
         
         # Get appropriate downloader
         downloader_class = PLATFORM_DOWNLOADERS.get(platform)
         if not downloader_class:
+            error_msg = f"No downloader available for platform: {platform.value}"
+            if progress_tracker:
+                progress_tracker.report_error(error_msg)
             return DownloadResult(
                 success=False,
                 url=url,
                 platform=platform.value,
-                error=f"No downloader available for platform: {platform.value}"
+                error=error_msg
             )
         
-        # Initialize downloader and extract content
-        # Handle different downloader initialization patterns
+        # Initialize downloader with progress tracking
         if platform == PlatformType.INSTAGRAM:
-            downloader_instance = downloader_class(download_dir="downloads", rate_limit=2.0)
+            downloader_instance = downloader_class(
+                download_dir="downloads", 
+                rate_limit=2.0,
+                progress_tracker=progress_tracker
+            )
         else:
-            downloader_instance = downloader_class()
+            downloader_instance = downloader_class(progress_tracker=progress_tracker)
         
+        # Extract/download content
         async with downloader_instance as downloader:
             if download_files:
                 # Use download_content method if available
@@ -594,20 +817,34 @@ async def process_single_download(
                 else:
                     # Fallback to extract_content only
                     content_data = await downloader.extract_content(url)
+                    if progress_tracker:
+                        progress_tracker.update_progress(
+                            message=f"File download not supported for {platform.value}, extracted content only",
+                            warning=True
+                        )
                     logger.warning(f"File download not supported for {platform.value}, extracted content only")
             else:
                 # Extract content without downloading files
                 content_data = await downloader.extract_content(url)
         
         if not content_data.get('success', False):
+            error_msg = content_data.get('error', 'Content extraction failed')
+            if progress_tracker:
+                progress_tracker.report_error(error_msg)
             return DownloadResult(
                 success=False,
                 url=url,
                 platform=platform.value,
-                error=content_data.get('error', 'Content extraction failed')
+                error=error_msg
             )
         
         # Store content in database
+        if progress_tracker:
+            progress_tracker.update_progress(
+                step="STORING_DATA",
+                message="Storing content in database"
+            )
+            
         post = await store_content(content_data, db)
         
         warning = None
@@ -623,13 +860,75 @@ async def process_single_download(
         )
         
     except Exception as e:
+        error_msg = f"Download processing failed: {str(e)}"
         logger.error(f"Error processing download for {url}: {str(e)}")
+        if progress_tracker:
+            progress_tracker.report_error(error_msg)
         return DownloadResult(
             success=False,
             url=url,
             platform=platform.value if platform else None,
-            error=f"Download processing failed: {str(e)}"
+            error=error_msg
         )
+
+
+async def process_batch_download_with_progress(
+    urls: List[str],
+    download_files: bool = False,
+    db: Session = None,
+    progress_tracker: Optional[ProgressTracker] = None
+):
+    """
+    Process multiple URLs with progress tracking
+    
+    Args:
+        urls: List of URLs to process
+        download_files: Whether to download media files
+        db: Database session
+        progress_tracker: Progress tracker instance
+    """
+    successful_downloads = 0
+    failed_downloads = 0
+    
+    for i, url in enumerate(urls):
+        if progress_tracker:
+            progress_tracker.update_progress(
+                message=f"Processing URL {i+1} of {len(urls)}: {url}",
+                current_item=i+1,
+                total_items=len(urls)
+            )
+        
+        result = await process_single_download_with_progress(
+            url=url,
+            platform=None,  # Auto-detect for each URL
+            download_files=download_files,
+            db=db,
+            progress_tracker=None  # Don't pass progress tracker to avoid double updates
+        )
+        
+        if result.success:
+            successful_downloads += 1
+        else:
+            failed_downloads += 1
+            if progress_tracker:
+                progress_tracker.update_progress(
+                    message=f"Failed to process URL {i+1}: {result.error}",
+                    warning=True
+                )
+        
+        # Add small delay between requests to be respectful
+        await asyncio.sleep(0.5)
+    
+    # Complete batch processing
+    if progress_tracker:
+        if successful_downloads > 0:
+            progress_tracker.complete_progress(
+                f"Batch completed: {successful_downloads}/{len(urls)} successful"
+            )
+        else:
+            progress_tracker.report_error(
+                f"Batch failed: All {failed_downloads} URLs failed to process"
+            )
 
 @router.post("/single", response_model=ApiResponse, status_code=status.HTTP_200_OK)
 async def download_single_url(
@@ -652,7 +951,7 @@ async def download_single_url(
             )
         
         # Process download
-        result = await process_single_download(
+        result = await process_single_download_with_progress(
             url=request.url.strip(),
             platform=request.platform,
             download_files=request.download_files,
@@ -735,7 +1034,7 @@ async def download_batch_urls(
         platform_stats = {}
         
         for url in clean_urls:
-            result = await process_single_download(
+            result = await process_single_download_with_progress(
                 url=url,
                 platform=None,  # Auto-detect for each URL
                 download_files=request.download_files,

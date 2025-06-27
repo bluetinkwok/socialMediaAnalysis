@@ -31,7 +31,8 @@ class ContentType(enum.Enum):
 class DownloadStatus(enum.Enum):
     """Download job status"""
     PENDING = "pending"
-    PROCESSING = "processing"
+    IN_PROGRESS = "in_progress"
+    PROCESSING = "processing"  # Keep for backward compatibility
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -138,6 +139,7 @@ class DownloadJob(Base):
     __tablename__ = "download_jobs"
     
     id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(String(255), unique=True, nullable=False, index=True)  # UUID for external references
     
     # Job information
     status = Column(Enum(DownloadStatus), default=DownloadStatus.PENDING, index=True)
