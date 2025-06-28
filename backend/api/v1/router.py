@@ -9,6 +9,7 @@ from .platforms import router as platforms_router
 from .posts import router as posts_router
 from .downloads import router as downloads_router
 from .websocket import router as websocket_router
+from .analytics import router as analytics_router
 # from .extraction import router as extraction_router  # Temporarily disabled
 
 # Create main API router
@@ -20,6 +21,7 @@ api_router.include_router(platforms_router, prefix="/platforms", tags=["platform
 api_router.include_router(posts_router, prefix="/posts", tags=["posts"])
 api_router.include_router(downloads_router, prefix="/downloads", tags=["downloads"])
 api_router.include_router(websocket_router, tags=["websocket"])
+api_router.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
 
 # Additional routers will be added as we develop them:
-# from . import analytics
+# from . import extraction

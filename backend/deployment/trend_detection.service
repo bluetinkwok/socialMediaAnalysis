@@ -1,0 +1,18 @@
+[Unit]
+Description=Social Media Trend Detection Service
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/socialMediaAnalysis/backend
+ExecStart=/usr/bin/python3 /opt/socialMediaAnalysis/backend/scripts/schedule_trend_detection.py --initial-run
+Restart=on-failure
+RestartSec=5s
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=trend-detection
+Environment=PYTHONPATH=/opt/socialMediaAnalysis
+
+[Install]
+WantedBy=multi-user.target 

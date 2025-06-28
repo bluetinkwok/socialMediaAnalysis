@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  trend-detection:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: social-media-analysis-trend-detection
+    container_name: social-media-analysis-trend-detection
+    restart: always
+    volumes:
+      - ../logs:/app/logs
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - PYTHONPATH=/app
+    command: python scripts/schedule_trend_detection.py --initial-run
+    networks:
+      - social-media-analysis-network
+
+networks:
+  social-media-analysis-network:
+    external: true 

@@ -9,8 +9,7 @@ from typing import Optional, Dict, Any
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Depends
 from fastapi.responses import HTMLResponse
 
-from ...services.websocket_manager import websocket_manager
-from ...dependencies import get_current_user_optional
+from services.websocket_manager import websocket_manager
 
 logger = logging.getLogger(__name__)
 
@@ -80,9 +79,7 @@ async def websocket_progress_endpoint(
 
 
 @router.get("/stats")
-async def get_websocket_stats(
-    current_user = Depends(get_current_user_optional)
-) -> Dict[str, Any]:
+async def get_websocket_stats() -> Dict[str, Any]:
     """
     Get WebSocket connection statistics.
     

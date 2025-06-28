@@ -30,10 +30,38 @@ from services.rednote_downloader import RedNoteDownloader
 from services.progress_tracker import (
     ProgressTracker, 
     DatabaseProgressCallback, 
-    WebSocketProgressCallback,
     LoggingProgressCallback
 )
-from services.websocket_manager import websocket_manager
+from services.websocket_manager import websocket_manager, WebSocketProgressCallback
+
+# Pydantic models for downloads
+class SingleDownloadRequest(BaseModel):
+    """Request schema for single URL download"""
+    url: str = Field(..., description="URL to download content from")
+    platform: Optional[PlatformType] = Field(None, description="Platform type (auto-detected if not provided)")
+    download_files: bool = Field(False, description="Whether to download media files")
+
+class BatchDownloadRequest(BaseModel):
+    """Request schema for batch URL downloads"""
+    urls: List[str] = Field(..., min_length=1, max_length=50, description="List of URLs to download")
+    download_files: bool = Field(False, description="Whether to download media files")
+
+class DownloadResult(BaseModel):
+    """Response schema for download results"""
+    success: bool
+    url: str
+    platform: Optional[str] = None
+    post_id: Optional[int] = None
+    error: Optional[str] = None
+    warning: Optional[str] = None
+
+# Platform downloader mapping
+PLATFORM_DOWNLOADERS = {
+    PlatformType.YOUTUBE: YouTubeDownloader,
+    PlatformType.INSTAGRAM: InstagramDownloader, 
+    PlatformType.THREADS: ThreadsDownloader,
+    PlatformType.REDNOTE: RedNoteDownloader
+}
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -602,34 +630,7 @@ async def retry_download_job(
         )
 
 
-# Add new schemas for single/batch downloads
-class SingleDownloadRequest(BaseModel):
-    """Request schema for single URL download"""
-    url: str = Field(..., description="URL to download content from")
-    platform: Optional[PlatformType] = Field(None, description="Platform type (auto-detected if not provided)")
-    download_files: bool = Field(False, description="Whether to download media files")
 
-class BatchDownloadRequest(BaseModel):
-    """Request schema for batch URL downloads"""
-    urls: List[str] = Field(..., min_length=1, max_length=50, description="List of URLs to download")
-    download_files: bool = Field(False, description="Whether to download media files")
-
-class DownloadResult(BaseModel):
-    """Response schema for download results"""
-    success: bool
-    url: str
-    platform: Optional[str] = None
-    post_id: Optional[int] = None
-    error: Optional[str] = None
-    warning: Optional[str] = None
-
-# Add platform downloader mapping
-PLATFORM_DOWNLOADERS = {
-    PlatformType.YOUTUBE: YouTubeDownloader,
-    PlatformType.INSTAGRAM: InstagramDownloader, 
-    PlatformType.THREADS: ThreadsDownloader,
-    PlatformType.REDNOTE: RedNoteDownloader
-}
 
 def detect_platform_from_url(url: str) -> Optional[PlatformType]:
     """

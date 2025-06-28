@@ -52,3 +52,6 @@ undetected-chromedriver>=3.5.5
 fake-useragent>=1.5.1
 selenium-stealth>=1.0.6
 instaloader>=4.10.3
+
+# For trend scheduling
+schedule>=1.2.0

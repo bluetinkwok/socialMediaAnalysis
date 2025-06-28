@@ -2,7 +2,7 @@
 SQLAlchemy models for Social Media Analysis Platform
 """
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Float, Boolean, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Float, Boolean, ForeignKey, Enum, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -173,25 +173,44 @@ class AnalyticsData(Base):
     __tablename__ = "analytics_data"
     
     id = Column(Integer, primary_key=True, index=True)
-    post_id = Column(Integer, ForeignKey("posts.id"), nullable=False)
+    post_id = Column(Integer, ForeignKey("posts.id"), nullable=False, unique=True)  # One analytics record per post
     
-    # Performance metrics
-    engagement_rate = Column(Float)
+    # Core Performance metrics
+    engagement_rate = Column(Float, index=True)
+    performance_score = Column(Float, index=True)
+    
+    # Advanced metrics from MetricsCalculator
     virality_score = Column(Float)
-    performance_score = Column(Float)
     trend_score = Column(Float)
+    engagement_velocity = Column(Float)
+    content_quality_score = Column(Float)
+    audience_reach_score = Column(Float)
+    interaction_depth_score = Column(Float)
+    
+    # Scoring breakdown components
+    weighted_components = Column(JSON)  # Breakdown of weighted score components
+    applied_bonuses = Column(JSON)  # Applied bonuses and their values
+    applied_penalties = Column(JSON)  # Applied penalties and their values
+    platform_adjustment = Column(Float)  # Platform-specific adjustment factor
+    confidence_score = Column(Float)  # Confidence in the calculated score (0-100)
     
     # Comparative metrics
     platform_rank = Column(Integer)  # Rank within platform
     category_rank = Column(Integer)  # Rank within content type
+    overall_rank = Column(Integer)  # Overall rank across all content
     
     # Time-based metrics
     peak_engagement_hour = Column(Integer)  # Hour when engagement peaked
-    engagement_velocity = Column(Float)  # Rate of engagement growth
+    days_since_publish = Column(Integer)  # Days since original publish date
     
-    # Pattern recognition
-    success_patterns = Column(JSON)  # Identified success patterns
-    content_features = Column(JSON)  # Extracted content features
+    # Pattern recognition and features
+    success_patterns = Column(JSON)  # Identified success patterns with details
+    content_features = Column(JSON)  # Extracted content features for analysis
+    
+    # Processing metadata
+    algorithm_version = Column(String(50), default="1.0")  # Version of analytics algorithm used
+    processing_duration = Column(Float)  # Time taken to process analytics (seconds)
+    data_quality_flags = Column(JSON)  # Flags indicating data quality issues
     
     # Timestamps
     analyzed_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -201,8 +220,43 @@ class AnalyticsData(Base):
     # Relationships
     post = relationship("Post", back_populates="analytics")
     
+    # Indexes for common queries
+    __table_args__ = (
+        Index('idx_analytics_performance_score', 'performance_score'),
+        Index('idx_analytics_platform_rank', 'platform_rank'),
+        Index('idx_analytics_engagement_rate', 'engagement_rate'),
+        Index('idx_analytics_analyzed_at', 'analyzed_at'),
+        Index('idx_analytics_post_performance', 'post_id', 'performance_score'),
+    )
+    
     def __repr__(self):
         return f"<AnalyticsData(id={self.id}, post_id={self.post_id}, score={self.performance_score})>"
+    
+    def to_dict(self) -> dict:
+        """Convert analytics data to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'post_id': self.post_id,
+            'engagement_rate': self.engagement_rate,
+            'performance_score': self.performance_score,
+            'virality_score': self.virality_score,
+            'trend_score': self.trend_score,
+            'engagement_velocity': self.engagement_velocity,
+            'content_quality_score': self.content_quality_score,
+            'audience_reach_score': self.audience_reach_score,
+            'interaction_depth_score': self.interaction_depth_score,
+            'platform_adjustment': self.platform_adjustment,
+            'confidence_score': self.confidence_score,
+            'platform_rank': self.platform_rank,
+            'category_rank': self.category_rank,
+            'overall_rank': self.overall_rank,
+            'success_patterns': self.success_patterns,
+            'content_features': self.content_features,
+            'algorithm_version': self.algorithm_version,
+            'analyzed_at': self.analyzed_at.isoformat() if self.analyzed_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
 
 
 class TrendData(Base):
