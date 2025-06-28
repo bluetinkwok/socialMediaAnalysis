@@ -6,7 +6,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppProvider } from './contexts/AppContext';
-import Dashboard from './pages/Dashboard';
+import DashboardPage from './pages/DashboardPage';
 import Downloads from './pages/Downloads';
 import Content from './pages/Content';
 import Analytics from './pages/Analytics';
@@ -32,7 +32,7 @@ function App() {
           <Layout>
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/downloads" element={<Downloads />} />
               <Route path="/content" element={<Content />} />
               <Route path="/analytics" element={<Analytics />} />

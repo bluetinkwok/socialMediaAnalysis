@@ -2,14 +2,14 @@
  * Dashboard page component
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line
 } from 'recharts';
-import apiService from '../services/api';
-import type { AnalyticsData, DownloadJob, Platform } from '../types';
+import type { Platform } from '../types';
+import useDashboardData from '../hooks/useDashboardData';
 
 // Chart colors
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
@@ -20,50 +20,8 @@ const PLATFORM_COLORS: Record<Platform, string> = {
   rednote: '#FF5733'
 };
 
-const Dashboard: React.FC = () => {
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [analytics, setAnalytics] = useState<any | null>(null);
-  const [downloadJobs, setDownloadJobs] = useState<DownloadJob[]>([]);
-  const [topPerformers, setTopPerformers] = useState<any[]>([]);
-  const [trendingHashtags, setTrendingHashtags] = useState<any[]>([]);
-
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch analytics overview
-        const analyticsOverview = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/analytics/summary/overview`);
-        const analyticsData = await analyticsOverview.json();
-        
-        // Fetch download jobs
-        const jobs = await apiService.getDownloadJobs();
-        
-        // Fetch top performers across platforms
-        const topPerformersResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/analytics/top-performers/youtube?limit=5`);
-        const topPerformersData = await topPerformersResponse.json();
-        
-        // Fetch trending hashtags
-        const hashtagsResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/analytics/trends/hashtags`);
-        const hashtagsData = await hashtagsResponse.json();
-        
-        // Set state with fetched data
-        setAnalytics(analyticsData.data);
-        setDownloadJobs(jobs.slice(0, 5)); // Only show latest 5 jobs
-        setTopPerformers(topPerformersData.data.posts || []);
-        setTrendingHashtags(hashtagsData.data.hashtags || []);
-        
-        setLoading(false);
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-        setError('Failed to load dashboard data. Please try again later.');
-        setLoading(false);
-      }
-    };
-
-    fetchDashboardData();
-  }, []);
+const DashboardPage: React.FC = () => {
+  const { analytics, downloadJobs, topPerformers, trendingHashtags, loading, error } = useDashboardData();
 
   // Prepare data for platform distribution chart
   const preparePlatformData = () => {
@@ -382,4 +340,4 @@ const Dashboard: React.FC = () => {
   );
 };
 
-export default Dashboard; 
+export default DashboardPage; 
