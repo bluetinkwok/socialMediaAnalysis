@@ -11,7 +11,8 @@ import {
   FileText, 
   Home, 
   Settings,
-  Search
+  Search,
+  TrendingUp
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -26,6 +27,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Downloads', href: '/downloads', icon: Download },
     { name: 'Content', href: '/content', icon: FileText },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+    { name: 'Success Patterns', href: '/success-patterns', icon: TrendingUp },
   ];
 
   const isActive = (path: string) => location.pathname === path;

@@ -8,6 +8,7 @@ from .engine import AnalyticsEngine
 from .data_processor import DataProcessor, ProcessedMetrics, MetricType
 from .metrics_calculator import MetricsCalculator, AdvancedMetrics
 from .scoring_algorithm import ScoringAlgorithm, ScoringWeights, ScoreBreakdown
+from .pattern_recognizer import PatternRecognizer, PatternRule
 
 __all__ = [
     'AnalyticsEngine',
@@ -18,5 +19,7 @@ __all__ = [
     'AdvancedMetrics',
     'ScoringAlgorithm',
     'ScoringWeights',
-    'ScoreBreakdown'
+    'ScoreBreakdown',
+    'PatternRecognizer',
+    'PatternRule'
 ]

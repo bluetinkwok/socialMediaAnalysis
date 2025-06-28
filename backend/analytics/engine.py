@@ -13,6 +13,7 @@ from sqlalchemy import func
 from .data_processor import DataProcessor, ProcessedMetrics
 from .metrics_calculator import MetricsCalculator, AdvancedMetrics
 from .scoring_algorithm import ScoringAlgorithm, ScoreBreakdown
+from .pattern_recognizer import PatternRecognizer
 from db.models import Post, AnalyticsData, PlatformType
 from db.database import SessionLocal
 
@@ -27,6 +28,7 @@ class AnalyticsEngine:
         self.data_processor = DataProcessor(self.db)
         self.metrics_calculator = MetricsCalculator()
         self.scoring_algorithm = ScoringAlgorithm()
+        self.pattern_recognizer = PatternRecognizer(self.db)
     
     def analyze_post(self, post_id: int) -> Dict[str, Any]:
         """
@@ -51,6 +53,12 @@ class AnalyticsEngine:
             
             # Calculate advanced metrics
             advanced_metrics = self.metrics_calculator.calculate_advanced_metrics(processed_metrics)
+            
+            # Apply enhanced pattern recognition
+            enhanced_patterns = self.pattern_recognizer.recognize_patterns(
+                post, processed_metrics, advanced_metrics
+            )
+            advanced_metrics.success_patterns = enhanced_patterns
             
             # Calculate performance score with detailed breakdown
             score_breakdown = self.scoring_algorithm.calculate_score_detailed(
@@ -134,6 +142,12 @@ class AnalyticsEngine:
             
             # Calculate advanced metrics
             advanced_metrics = self.metrics_calculator.calculate_advanced_metrics(processed_metrics)
+            
+            # Apply enhanced pattern recognition
+            enhanced_patterns = self.pattern_recognizer.recognize_patterns(
+                post, processed_metrics, advanced_metrics
+            )
+            advanced_metrics.success_patterns = enhanced_patterns
             
             # Calculate detailed score breakdown
             score_breakdown = self.scoring_algorithm.calculate_score_detailed(
