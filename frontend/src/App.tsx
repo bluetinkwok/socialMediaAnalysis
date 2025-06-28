@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppProvider } from './contexts/AppContext';
 import DashboardPage from './pages/DashboardPage';
 import Downloads from './pages/Downloads';
+import DownloadCenter from './pages/DownloadCenter';
 import Content from './pages/Content';
 import Analytics from './pages/Analytics';
 import SuccessPatterns from './pages/SuccessPatterns';
@@ -34,6 +35,7 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/downloads" element={<Downloads />} />
+              <Route path="/download-center" element={<DownloadCenter />} />
               <Route path="/content" element={<Content />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/success-patterns" element={<SuccessPatterns />} />

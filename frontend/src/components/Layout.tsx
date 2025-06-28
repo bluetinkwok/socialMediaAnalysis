@@ -12,7 +12,8 @@ import {
   Home, 
   Settings,
   Search,
-  TrendingUp
+  TrendingUp,
+  DownloadCloud
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -25,6 +26,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Downloads', href: '/downloads', icon: Download },
+    { name: 'Download Center', href: '/download-center', icon: DownloadCloud },
     { name: 'Content', href: '/content', icon: FileText },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Success Patterns', href: '/success-patterns', icon: TrendingUp },
