@@ -68,6 +68,12 @@ class Settings(BaseSettings):
     enable_analytics: bool = Field(default=True, env="ENABLE_ANALYTICS")
     analytics_batch_size: int = Field(default=100, env="ANALYTICS_BATCH_SIZE")
     
+    # Malicious URL detection settings
+    url_blacklist_file: str = Field(default="./data/security/blacklist.txt", env="URL_BLACKLIST_FILE")
+    url_whitelist_file: str = Field(default="./data/security/whitelist.txt", env="URL_WHITELIST_FILE")
+    url_cache_dir: str = Field(default="./data/security/cache", env="URL_CACHE_DIR")
+    url_cache_duration: int = Field(default=86400, env="URL_CACHE_DURATION")  # 24 hours in seconds
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

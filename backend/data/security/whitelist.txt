@@ -1,0 +1,36 @@
+# Whitelist of trusted domains
+# One domain per line, no www prefix
+
+# Major search engines and platforms
+google.com
+bing.com
+yahoo.com
+duckduckgo.com
+
+# Social media platforms
+youtube.com
+youtu.be
+instagram.com
+threads.net
+facebook.com
+twitter.com
+linkedin.com
+pinterest.com
+reddit.com
+tiktok.com
+xiaohongshu.com
+
+# Tech companies
+microsoft.com
+apple.com
+amazon.com
+github.com
+stackoverflow.com
+
+# News and reference
+wikipedia.org
+bbc.com
+cnn.com
+nytimes.com
+
+# Add more trusted domains as needed 

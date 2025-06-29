@@ -18,9 +18,14 @@ requests==2.31.0
 httpx==0.25.2
 aiohttp==3.9.1
 
-# Web scraping dependencies
+# Content parsing dependencies
 beautifulsoup4==4.12.2
 lxml==4.9.3
+selectolax==0.3.17
+feedparser==6.0.10
+html2text==2020.1.16
+
+# Browser automation dependencies
 selenium==4.16.0
 webdriver-manager==4.0.1
 
@@ -55,3 +60,6 @@ instaloader>=4.10.3
 
 # For trend scheduling
 schedule>=1.2.0
+
+# WebSockets
+websockets==11.0.3

@@ -705,7 +705,7 @@
               1
             ],
             "details": "Leverage external threat intelligence services to identify URLs associated with phishing, malware, or other threats. Maintain and enforce domain whitelists and blacklists to control allowed and disallowed URLs dynamically.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Simulate malicious URL inputs and verify detection and blocking. Test whitelist and blacklist enforcement with allowed and disallowed domains."
           },
           {
@@ -842,7 +842,7 @@
     ],
     "metadata": {
       "created": "2025-06-22T11:33:57.173Z",
-      "updated": "2025-06-29T02:33:10.668Z",
+      "updated": "2025-06-29T03:14:11.959Z",
       "description": "Tasks for master context"
     }
   }

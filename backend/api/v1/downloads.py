@@ -21,7 +21,7 @@ from db.schemas import (
     DownloadJobUpdate,
     ApiResponse
 )
-from core.security import url_validator
+from core.security import url_validator, malicious_url_detector
 from db.storage import store_content
 from services.youtube_downloader import YouTubeDownloader
 from services.instagram_downloader import InstagramDownloader  
@@ -741,7 +741,7 @@ async def process_single_download_with_progress(
     progress_tracker: Optional[ProgressTracker] = None
 ) -> DownloadResult:
     """
-    Process a single URL download with progress tracking
+    Process a single download with progress tracking
     
     Args:
         url: URL to download
@@ -751,87 +751,79 @@ async def process_single_download_with_progress(
         progress_tracker: Progress tracker instance
         
     Returns:
-        Download result
+        DownloadResult with status and details
     """
     try:
-        # Validate URL
         if progress_tracker:
-            progress_tracker.update_progress(
-                step="VALIDATING_URL",
-                message="Validating URL format"
-            )
-            
+            progress_tracker.update_status("Validating URL...")
+        
+        # Validate URL format
         validation_result = url_validator.validate_url_format(url)
         if not validation_result['is_valid']:
-            error_msg = f"Invalid URL: {validation_result.get('error', 'Unknown validation error')}"
-            if progress_tracker:
-                progress_tracker.report_error(error_msg)
             return DownloadResult(
                 success=False,
                 url=url,
-                error=error_msg
+                error=f"Invalid URL format: {validation_result.get('error', 'Unknown validation error')}"
+            )
+            
+        # Check for malicious URLs
+        if progress_tracker:
+            progress_tracker.update_status("Checking URL security...")
+            
+        malicious_check = malicious_url_detector.check_url(url)
+        if malicious_check['is_malicious']:
+            return DownloadResult(
+                success=False,
+                url=url,
+                error=f"Malicious URL detected: {malicious_check.get('threat_type', 'security threat')}. " +
+                      f"Detection method: {malicious_check.get('detection_method', 'security check')}"
             )
         
-        # Detect platform if not provided
-        if platform is None:
-            platform = detect_platform_from_url(url)
-            
-        if platform is None:
-            error_msg = "Unsupported platform or unable to detect platform from URL"
+        # Auto-detect platform if not provided
+        if not platform:
             if progress_tracker:
-                progress_tracker.report_error(error_msg)
-            return DownloadResult(
-                success=False,
-                url=url,
-                error=error_msg
-            )
+                progress_tracker.update_status("Detecting platform...")
+            
+            detected_platform = detect_platform_from_url(url)
+            if not detected_platform:
+                return DownloadResult(
+                    success=False,
+                    url=url,
+                    error="Could not detect platform from URL"
+                )
+            platform = detected_platform
         
         # Get appropriate downloader
         downloader_class = PLATFORM_DOWNLOADERS.get(platform)
         if not downloader_class:
-            error_msg = f"No downloader available for platform: {platform.value}"
-            if progress_tracker:
-                progress_tracker.report_error(error_msg)
             return DownloadResult(
                 success=False,
                 url=url,
-                platform=platform.value,
-                error=error_msg
+                error=f"No downloader available for platform: {platform.value}"
             )
         
         # Initialize downloader with progress tracking
+        if progress_tracker:
+            progress_tracker.update_status(f"Initializing {platform.value} downloader...")
+        
+        # Handle different downloader initialization patterns
         if platform == PlatformType.INSTAGRAM:
-            downloader_instance = downloader_class(
-                download_dir="downloads", 
-                rate_limit=2.0,
-                progress_tracker=progress_tracker
-            )
+            downloader = downloader_class(download_dir="downloads", rate_limit=2.0)
         else:
-            downloader_instance = downloader_class(progress_tracker=progress_tracker)
+            downloader = downloader_class()
         
-        # Extract/download content
-        async with downloader_instance as downloader:
-            if download_files:
-                # Use download_content method if available
-                if hasattr(downloader, 'download_content'):
-                    content_data = await downloader.download_content(url)
-                else:
-                    # Fallback to extract_content only
-                    content_data = await downloader.extract_content(url)
-                    if progress_tracker:
-                        progress_tracker.update_progress(
-                            message=f"File download not supported for {platform.value}, extracted content only",
-                            warning=True
-                        )
-                    logger.warning(f"File download not supported for {platform.value}, extracted content only")
-            else:
-                # Extract content without downloading files
-                content_data = await downloader.extract_content(url)
+        # Download content
+        if progress_tracker:
+            progress_tracker.update_status(f"Downloading content from {platform.value}...")
+            progress_tracker.update_progress(25)  # 25% progress after initialization
         
-        if not content_data.get('success', False):
-            error_msg = content_data.get('error', 'Content extraction failed')
+        content_data = await downloader.extract_content(url)
+        
+        if not content_data or not content_data.get('success', False):
+            error_msg = content_data.get('error', 'Unknown error during content extraction')
             if progress_tracker:
-                progress_tracker.report_error(error_msg)
+                progress_tracker.update_status(f"Download failed: {error_msg}")
+                progress_tracker.update_progress(0)
             return DownloadResult(
                 success=False,
                 url=url,
@@ -839,36 +831,71 @@ async def process_single_download_with_progress(
                 error=error_msg
             )
         
+        if progress_tracker:
+            progress_tracker.update_status("Content extracted successfully")
+            progress_tracker.update_progress(50)  # 50% progress after extraction
+        
         # Store content in database
         if progress_tracker:
-            progress_tracker.update_progress(
-                step="STORING_DATA",
-                message="Storing content in database"
+            progress_tracker.update_status("Storing content in database...")
+        
+        try:
+            post_id = await store_content(content_data, platform, db)
+            
+            if progress_tracker:
+                progress_tracker.update_status("Content stored successfully")
+                progress_tracker.update_progress(75)  # 75% progress after storing
+            
+            # Download media files if requested
+            if download_files and hasattr(downloader, 'download_media'):
+                if progress_tracker:
+                    progress_tracker.update_status("Downloading media files...")
+                
+                media_result = await downloader.download_media(content_data)
+                
+                if not media_result.get('success', False):
+                    warning_msg = f"Content stored but media download failed: {media_result.get('error', 'Unknown error')}"
+                    if progress_tracker:
+                        progress_tracker.update_status(warning_msg)
+                    
+                    return DownloadResult(
+                        success=True,
+                        url=url,
+                        platform=platform.value,
+                        post_id=post_id,
+                        warning=warning_msg
+                    )
+            
+            if progress_tracker:
+                progress_tracker.update_status("Download completed successfully")
+                progress_tracker.update_progress(100)  # 100% progress when done
+            
+            return DownloadResult(
+                success=True,
+                url=url,
+                platform=platform.value,
+                post_id=post_id
             )
             
-        post = await store_content(content_data, db)
-        
-        warning = None
-        if download_files and not hasattr(downloader, 'download_content'):
-            warning = f"File download not supported for {platform.value}, content extracted only"
-        
-        return DownloadResult(
-            success=True,
-            url=url,
-            platform=platform.value,
-            post_id=post.id if post else None,
-            warning=warning
-        )
-        
+        except Exception as e:
+            if progress_tracker:
+                progress_tracker.update_status(f"Error storing content: {str(e)}")
+            logger.error(f"Error storing content: {str(e)}")
+            return DownloadResult(
+                success=False,
+                url=url,
+                platform=platform.value,
+                error=f"Error storing content: {str(e)}"
+            )
+    
     except Exception as e:
-        error_msg = f"Download processing failed: {str(e)}"
-        logger.error(f"Error processing download for {url}: {str(e)}")
+        error_msg = f"Error processing download: {str(e)}"
         if progress_tracker:
-            progress_tracker.report_error(error_msg)
+            progress_tracker.update_status(error_msg)
+        logger.error(error_msg)
         return DownloadResult(
             success=False,
             url=url,
-            platform=platform.value if platform else None,
             error=error_msg
         )
 
@@ -880,56 +907,103 @@ async def process_batch_download_with_progress(
     progress_tracker: Optional[ProgressTracker] = None
 ):
     """
-    Process multiple URLs with progress tracking
+    Process a batch of URLs for download with progress tracking
     
     Args:
-        urls: List of URLs to process
+        urls: List of URLs to download
         download_files: Whether to download media files
         db: Database session
         progress_tracker: Progress tracker instance
+        
+    Returns:
+        Dict with results and statistics
     """
-    successful_downloads = 0
-    failed_downloads = 0
+    if progress_tracker:
+        progress_tracker.update_status(f"Processing batch download of {len(urls)} URLs")
     
-    for i, url in enumerate(urls):
+    # Validate URLs first
+    if progress_tracker:
+        progress_tracker.update_status("Validating URLs...")
+    
+    validation_results = url_validator.validate_batch_urls(urls)
+    valid_urls = [item['url'] for item in validation_results['valid_urls']]
+    invalid_urls = validation_results['invalid_urls']
+    
+    # Check for malicious URLs
+    if progress_tracker:
+        progress_tracker.update_status("Checking URL security...")
+    
+    malicious_check_results = malicious_url_detector.check_batch_urls(valid_urls)
+    safe_urls = [item['url'] for item in malicious_check_results['safe_urls']]
+    malicious_urls = malicious_check_results['malicious_urls']
+    
+    # Prepare results for invalid and malicious URLs
+    failed_results = []
+    
+    # Add invalid URLs to failed results
+    for invalid in invalid_urls:
+        failed_results.append(DownloadResult(
+            success=False,
+            url=invalid['url'],
+            error=f"Invalid URL: {invalid.get('error', 'Unknown validation error')}"
+        ))
+    
+    # Add malicious URLs to failed results
+    for malicious in malicious_urls:
+        failed_results.append(DownloadResult(
+            success=False,
+            url=malicious['url'],
+            error=f"Malicious URL detected: {malicious.get('threat_type', 'security threat')}. " +
+                  f"Detection method: {malicious.get('detection_method', 'security check')}"
+        ))
+    
+    # Process only safe URLs
+    results = []
+    success_count = 0
+    failure_count = len(failed_results)
+    
+    total_safe_urls = len(safe_urls)
+    
+    if progress_tracker:
+        progress_tracker.update_status(f"Found {total_safe_urls} safe URLs to process")
+    
+    for i, url in enumerate(safe_urls):
         if progress_tracker:
-            progress_tracker.update_progress(
-                message=f"Processing URL {i+1} of {len(urls)}: {url}",
-                current_item=i+1,
-                total_items=len(urls)
-            )
+            progress_tracker.update_status(f"Processing URL {i+1}/{total_safe_urls}: {url}")
+            progress_tracker.update_progress(int((i / total_safe_urls) * 100))
         
         result = await process_single_download_with_progress(
             url=url,
-            platform=None,  # Auto-detect for each URL
             download_files=download_files,
             db=db,
-            progress_tracker=None  # Don't pass progress tracker to avoid double updates
+            progress_tracker=None  # Don't pass the tracker to avoid nested updates
         )
         
-        if result.success:
-            successful_downloads += 1
-        else:
-            failed_downloads += 1
-            if progress_tracker:
-                progress_tracker.update_progress(
-                    message=f"Failed to process URL {i+1}: {result.error}",
-                    warning=True
-                )
+        results.append(result)
         
-        # Add small delay between requests to be respectful
-        await asyncio.sleep(0.5)
-    
-    # Complete batch processing
-    if progress_tracker:
-        if successful_downloads > 0:
-            progress_tracker.complete_progress(
-                f"Batch completed: {successful_downloads}/{len(urls)} successful"
-            )
+        if result.success:
+            success_count += 1
         else:
-            progress_tracker.report_error(
-                f"Batch failed: All {failed_downloads} URLs failed to process"
-            )
+            failure_count += 1
+    
+    # Combine all results
+    all_results = results + failed_results
+    
+    if progress_tracker:
+        progress_tracker.update_status(f"Batch processing complete: {success_count} succeeded, {failure_count} failed")
+        progress_tracker.update_progress(100)
+    
+    return {
+        "results": all_results,
+        "summary": {
+            "total": len(urls),
+            "success": success_count,
+            "failure": failure_count,
+            "invalid_urls": len(invalid_urls),
+            "malicious_urls": len(malicious_urls),
+            "success_rate": round((success_count / len(urls)) * 100, 2) if urls else 0
+        }
+    }
 
 @router.post("/single", response_model=ApiResponse, status_code=status.HTTP_200_OK)
 async def download_single_url(

@@ -357,3 +357,9 @@ class URLValidator:
 
 # Global validator instance
 url_validator = URLValidator() 
+
+# Import and create singleton instance of MaliciousURLDetector
+from core.malicious_url_detector import MaliciousURLDetector
+
+# Global malicious URL detector instance
+malicious_url_detector = MaliciousURLDetector() 
