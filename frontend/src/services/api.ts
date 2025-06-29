@@ -187,6 +187,15 @@ class ApiService {
     }
   }
 
+  async getContentAnalytics(contentId: string): Promise<any> {
+    try {
+      const response = await this.client.get(`/api/v1/analytics/${contentId}?detailed=true`);
+      return response.data.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
   // File operations
   async downloadFile(contentId: string, fileId: string): Promise<Blob> {
     try {

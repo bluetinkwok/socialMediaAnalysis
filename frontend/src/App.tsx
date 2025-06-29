@@ -9,7 +9,8 @@ import { AppProvider } from './contexts/AppContext';
 import DashboardPage from './pages/DashboardPage';
 import Downloads from './pages/Downloads';
 import DownloadCenter from './pages/DownloadCenter';
-import Content from './pages/Content';
+import ContentLibrary from './pages/ContentLibrary';
+import ContentView from './pages/ContentView';
 import Analytics from './pages/Analytics';
 import SuccessPatterns from './pages/SuccessPatterns';
 import Layout from './components/Layout';
@@ -36,7 +37,8 @@ function App() {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/downloads" element={<Downloads />} />
               <Route path="/download-center" element={<DownloadCenter />} />
-              <Route path="/content" element={<Content />} />
+              <Route path="/content" element={<ContentLibrary />} />
+              <Route path="/content/:id" element={<ContentView />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/success-patterns" element={<SuccessPatterns />} />
               {/* Add more routes as needed */}
