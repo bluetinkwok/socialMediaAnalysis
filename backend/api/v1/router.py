@@ -12,6 +12,7 @@ from .websocket import router as websocket_router
 from .analytics import router as analytics_router
 from .success_patterns import router as success_patterns_router
 from .security import router as security_router
+from .uploads import router as uploads_router
 # from .extraction import router as extraction_router  # Temporarily disabled
 
 # Create main API router
@@ -26,6 +27,7 @@ api_router.include_router(websocket_router, tags=["websocket"])
 api_router.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(success_patterns_router, tags=["success-patterns"])
 api_router.include_router(security_router, tags=["security"])
+api_router.include_router(uploads_router, prefix="/uploads", tags=["uploads"])
 
 # Additional routers will be added as we develop them:
 # from . import extraction

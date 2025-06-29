@@ -17,6 +17,8 @@ from core.config import get_settings
 
 # Import API routes
 from api.v1.router import api_router
+from core.middleware import SanitizationMiddleware
+from core.rate_limiter import RateLimitingMiddleware
 
 # Configure logging
 logging.basicConfig(
@@ -49,8 +51,9 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI application
 app = FastAPI(
-    title="Social Media Analysis Platform",
-    description="A comprehensive platform for downloading, analyzing, and understanding successful social media content",
+    title=settings.PROJECT_NAME,
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    description="Social Media Analysis Platform API",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -60,11 +63,17 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins,
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add input sanitization middleware
+app.add_middleware(SanitizationMiddleware)
+
+# Add rate limiting middleware
+app.add_middleware(RateLimitingMiddleware)
 
 
 # Root endpoint
@@ -180,7 +189,7 @@ async def get_stats(db=Depends(get_database)):
 
 
 # Include API routes
-app.include_router(api_router, prefix="/api/v1")
+app.include_router(api_router, prefix=settings.API_V1_STR)
 
 
 # Error handlers

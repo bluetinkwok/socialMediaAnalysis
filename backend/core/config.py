@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     
     # File storage settings
     downloads_path: str = Field(default="./downloads", env="DOWNLOADS_PATH")
+    uploads_path: str = Field(default="./uploads", env="UPLOADS_PATH")
     max_file_size_mb: int = Field(default=100, env="MAX_FILE_SIZE_MB")
     allowed_file_types: List[str] = Field(
         default=["jpg", "jpeg", "png", "gif", "mp4", "avi", "mov", "txt", "json"],
