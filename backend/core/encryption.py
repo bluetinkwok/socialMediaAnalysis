@@ -101,7 +101,8 @@ class KeyManager:
         if not self.current_key:
             raise KeyManagementError("No current encryption key available")
         
-        return base64.urlsafe_b64decode(self.current_key["key"])
+        # Return the key directly as it's already in the correct format
+        return self.current_key["key"].encode('ascii')
     
     def get_key_by_id(self, key_id: str) -> Optional[bytes]:
         """
@@ -115,11 +116,11 @@ class KeyManager:
         """
         # Check if it's the current key
         if self.current_key and self.current_key["id"] == key_id:
-            return base64.urlsafe_b64decode(self.current_key["key"])
+            return self.current_key["key"].encode('ascii')
         
         # Check old keys
         if key_id in self.old_keys:
-            return base64.urlsafe_b64decode(self.old_keys[key_id]["key"])
+            return self.old_keys[key_id]["key"].encode('ascii')
         
         # Try to load from file
         key_path = self.key_dir / f"{KEY_PREFIX}{key_id}.json"
@@ -127,7 +128,7 @@ class KeyManager:
             try:
                 with open(key_path, "r") as f:
                     key_data = json.load(f)
-                return base64.urlsafe_b64decode(key_data["key"])
+                return key_data["key"].encode('ascii')
             except Exception as e:
                 logger.error(f"Failed to load key {key_id}: {str(e)}")
         

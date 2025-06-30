@@ -12,7 +12,7 @@ from datetime import datetime
 # Add parent directory to path to allow imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Text, Enum, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Text, Enum, ForeignKey, MetaData, Table
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.sql import func
@@ -29,49 +29,69 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-def add_privacy_columns_to_users():
-    """Add privacy-related columns to the users table."""
+def create_privacy_tables():
+    """Create all privacy-related tables."""
     try:
-        conn = engine.connect()
-        
-        # Check if columns already exist
-        result = conn.execute("PRAGMA table_info(users)")
-        columns = {row[1] for row in result.fetchall()}
-        
-        # Add columns if they don't exist
-        if "anonymized" not in columns:
-            conn.execute("ALTER TABLE users ADD COLUMN anonymized BOOLEAN DEFAULT 0")
-            logger.info("Added 'anonymized' column to users table")
-        
-        if "anonymized_at" not in columns:
-            conn.execute("ALTER TABLE users ADD COLUMN anonymized_at TIMESTAMP")
-            logger.info("Added 'anonymized_at' column to users table")
-        
-        if "data_export_requested_at" not in columns:
-            conn.execute("ALTER TABLE users ADD COLUMN data_export_requested_at TIMESTAMP")
-            logger.info("Added 'data_export_requested_at' column to users table")
-        
-        if "data_export_completed_at" not in columns:
-            conn.execute("ALTER TABLE users ADD COLUMN data_export_completed_at TIMESTAMP")
-            logger.info("Added 'data_export_completed_at' column to users table")
-        
-        if "deletion_requested_at" not in columns:
-            conn.execute("ALTER TABLE users ADD COLUMN deletion_requested_at TIMESTAMP")
-            logger.info("Added 'deletion_requested_at' column to users table")
-        
-        if "processing_restricted" not in columns:
-            conn.execute("ALTER TABLE users ADD COLUMN processing_restricted BOOLEAN DEFAULT 0")
-            logger.info("Added 'processing_restricted' column to users table")
-        
-        if "processing_restricted_at" not in columns:
-            conn.execute("ALTER TABLE users ADD COLUMN processing_restricted_at TIMESTAMP")
-            logger.info("Added 'processing_restricted_at' column to users table")
-        
-        conn.close()
-        logger.info("Successfully added privacy columns to users table")
-        
+        # Create all privacy-related tables
+        Base.metadata.create_all(engine, tables=[
+            UserConsent.__table__,
+            DataSubjectRequest.__table__,
+            DataProcessingLog.__table__,
+            DataBreachLog.__table__,
+            PrivacySettings.__table__,
+            DataRetentionPolicy.__table__,
+        ])
+        logger.info("Created privacy tables")
+        return True
     except Exception as e:
-        logger.error(f"Failed to add privacy columns to users table: {str(e)}")
+        logger.error(f"Failed to create privacy tables: {str(e)}")
+        raise
+
+
+def update_user_model():
+    """Update the User model with privacy fields."""
+    try:
+        # Create a session
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        # Add columns to users table if it exists
+        try:
+            # Check if users table exists
+            metadata = MetaData()
+            metadata.reflect(bind=engine, only=['users'])
+            
+            if 'users' in metadata.tables:
+                users_table = metadata.tables['users']
+                columns = users_table.columns.keys()
+                
+                # Add columns if they don't exist
+                columns_to_add = {
+                    "anonymized": "ALTER TABLE users ADD COLUMN anonymized BOOLEAN DEFAULT 0",
+                    "anonymized_at": "ALTER TABLE users ADD COLUMN anonymized_at TIMESTAMP",
+                    "data_export_requested_at": "ALTER TABLE users ADD COLUMN data_export_requested_at TIMESTAMP",
+                    "data_export_completed_at": "ALTER TABLE users ADD COLUMN data_export_completed_at TIMESTAMP",
+                    "deletion_requested_at": "ALTER TABLE users ADD COLUMN deletion_requested_at TIMESTAMP",
+                    "processing_restricted": "ALTER TABLE users ADD COLUMN processing_restricted BOOLEAN DEFAULT 0",
+                    "processing_restricted_at": "ALTER TABLE users ADD COLUMN processing_restricted_at TIMESTAMP"
+                }
+                
+                for column_name, sql in columns_to_add.items():
+                    if column_name not in columns:
+                        session.execute(sql)
+                        logger.info(f"Added '{column_name}' column to users table")
+                
+                logger.info("Successfully updated User model with privacy fields")
+            else:
+                logger.warning("Users table not found, skipping privacy columns")
+        except Exception as e:
+            logger.warning(f"Could not update users table: {str(e)}")
+        
+        session.commit()
+        session.close()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to update User model: {str(e)}")
         raise
 
 
@@ -105,7 +125,7 @@ def create_default_retention_policies():
         db.commit()
         db.close()
         logger.info("Successfully created default data retention policies")
-        
+        return True
     except Exception as e:
         logger.error(f"Failed to create default data retention policies: {str(e)}")
         raise
@@ -116,19 +136,11 @@ def run_migration():
     try:
         logger.info("Starting encryption and privacy migration...")
         
-        # Create all privacy-related tables
-        Base.metadata.create_all(engine, tables=[
-            UserConsent.__table__,
-            DataSubjectRequest.__table__,
-            DataProcessingLog.__table__,
-            DataBreachLog.__table__,
-            PrivacySettings.__table__,
-            DataRetentionPolicy.__table__,
-        ])
-        logger.info("Created privacy tables")
+        # Create privacy tables
+        create_privacy_tables()
         
-        # Add privacy columns to users table
-        add_privacy_columns_to_users()
+        # Update User model with privacy fields
+        update_user_model()
         
         # Create default retention policies
         create_default_retention_policies()

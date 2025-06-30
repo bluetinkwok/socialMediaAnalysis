@@ -1,444 +1,354 @@
 """
-Data Retention Policies
+Data Retention Module
 
-This module provides utilities for managing data retention, deletion, and privacy controls.
+This module provides utilities for managing data retention policies.
 """
 
 import logging
 import os
-import shutil
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, List, Optional, Union, Any
 
-from sqlalchemy import and_, or_, func, select, delete
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from core.config import get_settings
-from db.database import get_db
+from db.privacy_models import DataRetentionPolicy
+from db.database import SessionLocal
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
-
-# Constants
-DEFAULT_RETENTION_DAYS = 365  # Default retention period (1 year)
-RETENTION_POLICY_CONFIG = {
-    "user_data": 365 * 2,  # 2 years for user data
-    "analytics_data": 90,   # 90 days for analytics data
-    "log_data": 30,         # 30 days for logs
-    "temporary_files": 7,   # 7 days for temporary files
-}
 
 
-class DataRetentionError(Exception):
-    """Exception for data retention errors."""
-    pass
-
-
-class DataRetentionService:
+def get_retention_policy(data_type: str, db: Optional[Session] = None) -> Optional[DataRetentionPolicy]:
     """
-    Service for managing data retention policies and data deletion.
+    Get the retention policy for a specific data type.
+    
+    Args:
+        data_type: Type of data (e.g., "user_data", "analytics_data")
+        db: Database session (creates a new one if not provided)
+        
+    Returns:
+        DataRetentionPolicy object or None if not found
     """
+    close_session = False
+    if db is None:
+        db = SessionLocal()
+        close_session = True
     
-    def __init__(self, db: Optional[Session] = None):
-        """
-        Initialize the data retention service.
-        
-        Args:
-            db: Database session (optional)
-        """
-        self.db = db
-    
-    def apply_retention_policy(
-        self, 
-        model_class: type, 
-        policy_type: str = "user_data", 
-        date_column: str = "created_at",
-        extra_conditions: Optional[List] = None
-    ) -> int:
-        """
-        Apply retention policy to a database model.
-        
-        Args:
-            model_class: SQLAlchemy model class
-            policy_type: Type of retention policy to apply
-            date_column: Name of the date column to check
-            extra_conditions: Additional conditions for the query
-            
-        Returns:
-            Number of records deleted
-            
-        Raises:
-            DataRetentionError: If policy application fails
-        """
-        try:
-            # Get retention period
-            retention_days = RETENTION_POLICY_CONFIG.get(policy_type, DEFAULT_RETENTION_DAYS)
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=retention_days)
-            
-            # Prepare conditions
-            conditions = [getattr(model_class, date_column) < cutoff_date]
-            if extra_conditions:
-                conditions.extend(extra_conditions)
-            
-            # Use provided DB session or get a new one
-            db_to_use = self.db or next(get_db())
-            try:
-                # Count records to be deleted
-                count_query = select(func.count()).select_from(model_class).where(and_(*conditions))
-                count = db_to_use.execute(count_query).scalar() or 0
-                
-                if count > 0:
-                    # Delete records
-                    delete_query = delete(model_class).where(and_(*conditions))
-                    db_to_use.execute(delete_query)
-                    
-                    if not self.db:  # Only commit if we created the session
-                        db_to_use.commit()
-                    
-                    logger.info(f"Applied {policy_type} retention policy to {model_class.__name__}: deleted {count} records")
-                    return count
-                
-                return 0
-                
-            finally:
-                if not self.db:  # Only close if we created the session
-                    db_to_use.close()
-                    
-        except Exception as e:
-            logger.error(f"Failed to apply retention policy to {model_class.__name__}: {str(e)}")
-            raise DataRetentionError(f"Failed to apply retention policy: {str(e)}")
-    
-    def delete_expired_files(
-        self, 
-        directory: Union[str, Path], 
-        policy_type: str = "temporary_files",
-        file_pattern: str = "*",
-        recursive: bool = False
-    ) -> int:
-        """
-        Delete expired files from a directory.
-        
-        Args:
-            directory: Directory to clean up
-            policy_type: Type of retention policy to apply
-            file_pattern: Pattern for matching files
-            recursive: Whether to search recursively
-            
-        Returns:
-            Number of files deleted
-            
-        Raises:
-            DataRetentionError: If file deletion fails
-        """
-        try:
-            directory = Path(directory)
-            if not directory.exists():
-                logger.warning(f"Directory does not exist: {directory}")
-                return 0
-            
-            # Get retention period
-            retention_days = RETENTION_POLICY_CONFIG.get(policy_type, DEFAULT_RETENTION_DAYS)
-            cutoff_time = datetime.now(timezone.utc) - timedelta(days=retention_days)
-            cutoff_timestamp = cutoff_time.timestamp()
-            
-            # Find and delete expired files
-            deleted_count = 0
-            
-            if recursive:
-                # Recursive search
-                for path in directory.rglob(file_pattern):
-                    if path.is_file() and path.stat().st_mtime < cutoff_timestamp:
-                        path.unlink()
-                        deleted_count += 1
-            else:
-                # Non-recursive search
-                for path in directory.glob(file_pattern):
-                    if path.is_file() and path.stat().st_mtime < cutoff_timestamp:
-                        path.unlink()
-                        deleted_count += 1
-            
-            logger.info(f"Deleted {deleted_count} expired files from {directory}")
-            return deleted_count
-            
-        except Exception as e:
-            logger.error(f"Failed to delete expired files from {directory}: {str(e)}")
-            raise DataRetentionError(f"Failed to delete expired files: {str(e)}")
-    
-    def anonymize_user_data(self, user_id: int, db: Optional[Session] = None) -> bool:
-        """
-        Anonymize user data for GDPR/CCPA compliance.
-        
-        Args:
-            user_id: ID of the user to anonymize
-            db: Database session (optional)
-            
-        Returns:
-            True if successful, False otherwise
-            
-        Raises:
-            DataRetentionError: If anonymization fails
-        """
-        try:
-            # Use provided DB session or get a new one
-            db_to_use = db or self.db or next(get_db())
-            try:
-                # Get the user
-                from models.user import User
-                user = db_to_use.query(User).filter(User.id == user_id).first()
-                
-                if not user:
-                    logger.warning(f"User not found for anonymization: {user_id}")
-                    return False
-                
-                # Anonymize user data
-                user.email = f"anonymized_{user_id}@deleted.user"
-                user.full_name = f"Anonymized User {user_id}"
-                user.is_active = False
-                user.anonymized = True
-                user.anonymized_at = datetime.now(timezone.utc)
-                
-                # Additional anonymization logic can be added here
-                # For example, anonymizing related data, etc.
-                
-                if not (db or self.db):  # Only commit if we created the session
-                    db_to_use.commit()
-                
-                logger.info(f"Anonymized user data: {user_id}")
-                return True
-                
-            finally:
-                if not (db or self.db):  # Only close if we created the session
-                    db_to_use.close()
-                    
-        except Exception as e:
-            logger.error(f"Failed to anonymize user data: {str(e)}")
-            raise DataRetentionError(f"Failed to anonymize user data: {str(e)}")
-    
-    def delete_user_data(self, user_id: int, db: Optional[Session] = None) -> bool:
-        """
-        Delete all user data for GDPR/CCPA compliance.
-        
-        Args:
-            user_id: ID of the user to delete data for
-            db: Database session (optional)
-            
-        Returns:
-            True if successful, False otherwise
-            
-        Raises:
-            DataRetentionError: If deletion fails
-        """
-        try:
-            # Use provided DB session or get a new one
-            db_to_use = db or self.db or next(get_db())
-            try:
-                # Delete user-related data from various tables
-                # This is a simplified example, you would need to add all relevant tables
-                
-                # Delete user's files
-                from models.file import File
-                db_to_use.query(File).filter(File.user_id == user_id).delete()
-                
-                # Delete user's analyses
-                from models.analysis import Analysis
-                db_to_use.query(Analysis).filter(Analysis.user_id == user_id).delete()
-                
-                # Delete user's reports
-                from models.report import Report
-                db_to_use.query(Report).filter(Report.user_id == user_id).delete()
-                
-                # Finally, delete the user
-                from models.user import User
-                db_to_use.query(User).filter(User.id == user_id).delete()
-                
-                if not (db or self.db):  # Only commit if we created the session
-                    db_to_use.commit()
-                
-                logger.info(f"Deleted all data for user: {user_id}")
-                return True
-                
-            finally:
-                if not (db or self.db):  # Only close if we created the session
-                    db_to_use.close()
-                    
-        except Exception as e:
-            logger.error(f"Failed to delete user data: {str(e)}")
-            raise DataRetentionError(f"Failed to delete user data: {str(e)}")
-    
-    def export_user_data(self, user_id: int, db: Optional[Session] = None) -> Dict[str, Any]:
-        """
-        Export all user data for GDPR/CCPA compliance.
-        
-        Args:
-            user_id: ID of the user to export data for
-            db: Database session (optional)
-            
-        Returns:
-            Dictionary containing all user data
-            
-        Raises:
-            DataRetentionError: If export fails
-        """
-        try:
-            # Use provided DB session or get a new one
-            db_to_use = db or self.db or next(get_db())
-            try:
-                # Get user data
-                from models.user import User
-                user = db_to_use.query(User).filter(User.id == user_id).first()
-                
-                if not user:
-                    logger.warning(f"User not found for data export: {user_id}")
-                    return {}
-                
-                # Create export data structure
-                export_data = {
-                    "user": {
-                        "id": user.id,
-                        "email": user.email,
-                        "full_name": user.full_name,
-                        "created_at": user.created_at.isoformat() if user.created_at else None,
-                        "is_active": user.is_active,
-                        "is_superuser": user.is_superuser,
-                    },
-                    "files": [],
-                    "analyses": [],
-                    "reports": [],
-                    "export_date": datetime.now(timezone.utc).isoformat(),
-                }
-                
-                # Get user's files
-                from models.file import File
-                files = db_to_use.query(File).filter(File.user_id == user_id).all()
-                for file in files:
-                    export_data["files"].append({
-                        "id": file.id,
-                        "filename": file.filename,
-                        "content_type": file.content_type,
-                        "created_at": file.created_at.isoformat() if file.created_at else None,
-                    })
-                
-                # Get user's analyses
-                from models.analysis import Analysis
-                analyses = db_to_use.query(Analysis).filter(Analysis.user_id == user_id).all()
-                for analysis in analyses:
-                    export_data["analyses"].append({
-                        "id": analysis.id,
-                        "title": analysis.title,
-                        "description": analysis.description,
-                        "created_at": analysis.created_at.isoformat() if analysis.created_at else None,
-                    })
-                
-                # Get user's reports
-                from models.report import Report
-                reports = db_to_use.query(Report).filter(Report.user_id == user_id).all()
-                for report in reports:
-                    export_data["reports"].append({
-                        "id": report.id,
-                        "title": report.title,
-                        "created_at": report.created_at.isoformat() if report.created_at else None,
-                    })
-                
-                logger.info(f"Exported data for user: {user_id}")
-                return export_data
-                
-            finally:
-                if not (db or self.db):  # Only close if we created the session
-                    db_to_use.close()
-                    
-        except Exception as e:
-            logger.error(f"Failed to export user data: {str(e)}")
-            raise DataRetentionError(f"Failed to export user data: {str(e)}")
-
-
-# Create global instance
-data_retention_service = DataRetentionService()
+    try:
+        policy = db.query(DataRetentionPolicy).filter_by(data_type=data_type).first()
+        return policy
+    except Exception as e:
+        logger.error(f"Failed to get retention policy for {data_type}: {str(e)}")
+        return None
+    finally:
+        if close_session:
+            db.close()
 
 
 def apply_retention_policy(
-    model_class: type, 
-    policy_type: str = "user_data", 
-    date_column: str = "created_at",
-    extra_conditions: Optional[List] = None
-) -> int:
+    data_type: str, 
+    db: Optional[Session] = None,
+    simulate: bool = False
+) -> Dict[str, Any]:
     """
-    Apply retention policy to a database model.
+    Apply a retention policy to delete expired data.
     
     Args:
-        model_class: SQLAlchemy model class
-        policy_type: Type of retention policy to apply
-        date_column: Name of the date column to check
-        extra_conditions: Additional conditions for the query
+        data_type: Type of data (e.g., "user_data", "analytics_data")
+        db: Database session (creates a new one if not provided)
+        simulate: If True, only simulates deletion without actually deleting data
         
     Returns:
-        Number of records deleted
+        Dictionary with results:
+        {
+            "data_type": Data type,
+            "retention_days": Retention period in days,
+            "cutoff_date": Cutoff date for deletion,
+            "deleted_count": Number of records deleted,
+            "success": Whether the operation was successful
+        }
     """
-    return data_retention_service.apply_retention_policy(
-        model_class, policy_type, date_column, extra_conditions
-    )
+    close_session = False
+    if db is None:
+        db = SessionLocal()
+        close_session = True
+    
+    result = {
+        "data_type": data_type,
+        "retention_days": None,
+        "cutoff_date": None,
+        "deleted_count": 0,
+        "success": False
+    }
+    
+    try:
+        # Get the retention policy
+        policy = get_retention_policy(data_type, db)
+        if not policy:
+            logger.warning(f"No retention policy found for {data_type}")
+            return result
+        
+        # Calculate cutoff date
+        retention_days = policy.retention_period_days
+        cutoff_date = datetime.now() - timedelta(days=retention_days)
+        
+        result["retention_days"] = retention_days
+        result["cutoff_date"] = cutoff_date.isoformat()
+        
+        # Apply policy based on data type
+        if data_type == "user_data":
+            count = _apply_user_data_retention(db, cutoff_date, simulate)
+        elif data_type == "analytics_data":
+            count = _apply_analytics_data_retention(db, cutoff_date, simulate)
+        elif data_type == "log_data":
+            count = _apply_log_data_retention(db, cutoff_date, simulate)
+        elif data_type == "temporary_files":
+            count = _apply_temporary_files_retention(cutoff_date, simulate)
+        elif data_type == "marketing_data":
+            count = _apply_marketing_data_retention(db, cutoff_date, simulate)
+        else:
+            logger.warning(f"Unknown data type for retention: {data_type}")
+            count = 0
+        
+        result["deleted_count"] = count
+        result["success"] = True
+        
+        if not simulate:
+            db.commit()
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Failed to apply retention policy for {data_type}: {str(e)}")
+        if not simulate:
+            db.rollback()
+        result["error"] = str(e)
+        return result
+    finally:
+        if close_session:
+            db.close()
 
 
-def delete_expired_files(
-    directory: Union[str, Path], 
-    policy_type: str = "temporary_files",
-    file_pattern: str = "*",
-    recursive: bool = False
-) -> int:
+def apply_all_retention_policies(db: Optional[Session] = None, simulate: bool = False) -> List[Dict[str, Any]]:
     """
-    Delete expired files from a directory.
+    Apply all retention policies.
     
     Args:
-        directory: Directory to clean up
-        policy_type: Type of retention policy to apply
-        file_pattern: Pattern for matching files
-        recursive: Whether to search recursively
+        db: Database session (creates a new one if not provided)
+        simulate: If True, only simulates deletion without actually deleting data
         
     Returns:
-        Number of files deleted
+        List of results for each policy
     """
-    return data_retention_service.delete_expired_files(
-        directory, policy_type, file_pattern, recursive
-    )
+    close_session = False
+    if db is None:
+        db = SessionLocal()
+        close_session = True
+    
+    results = []
+    
+    try:
+        # Get all retention policies
+        policies = db.query(DataRetentionPolicy).all()
+        
+        for policy in policies:
+            result = apply_retention_policy(policy.data_type, db, simulate)
+            results.append(result)
+        
+        return results
+    except Exception as e:
+        logger.error(f"Failed to apply all retention policies: {str(e)}")
+        return results
+    finally:
+        if close_session:
+            db.close()
 
 
-def anonymize_user_data(user_id: int, db: Optional[Session] = None) -> bool:
+def _apply_user_data_retention(db: Session, cutoff_date: datetime, simulate: bool = False) -> int:
     """
-    Anonymize user data for GDPR/CCPA compliance.
+    Apply retention policy to user data.
     
     Args:
-        user_id: ID of the user to anonymize
-        db: Database session (optional)
+        db: Database session
+        cutoff_date: Date before which data should be deleted
+        simulate: If True, only simulates deletion
         
     Returns:
-        True if successful, False otherwise
+        Number of records that would be/were deleted
     """
-    return data_retention_service.anonymize_user_data(user_id, db)
+    # This would delete user data older than the cutoff date
+    # In a real application, we might anonymize instead of delete
+    if simulate:
+        # Count users that would be deleted
+        count = db.execute(
+            text("SELECT COUNT(*) FROM users WHERE created_at < :cutoff AND deletion_requested_at IS NOT NULL"),
+            {"cutoff": cutoff_date}
+        ).scalar() or 0
+    else:
+        # Actually delete users
+        # Note: In a real application, this would be more complex with proper anonymization
+        count = db.execute(
+            text("DELETE FROM users WHERE created_at < :cutoff AND deletion_requested_at IS NOT NULL"),
+            {"cutoff": cutoff_date}
+        ).rowcount
+    
+    action = "Would delete" if simulate else "Deleted"
+    logger.info(f"{action} {count} user records older than {cutoff_date}")
+    return count
 
 
-def delete_user_data(user_id: int, db: Optional[Session] = None) -> bool:
+def _apply_analytics_data_retention(db: Session, cutoff_date: datetime, simulate: bool = False) -> int:
     """
-    Delete all user data for GDPR/CCPA compliance.
+    Apply retention policy to analytics data.
     
     Args:
-        user_id: ID of the user to delete data for
-        db: Database session (optional)
+        db: Database session
+        cutoff_date: Date before which data should be deleted
+        simulate: If True, only simulates deletion
         
     Returns:
-        True if successful, False otherwise
+        Number of records that would be/were deleted
     """
-    return data_retention_service.delete_user_data(user_id, db)
+    if simulate:
+        # Count analytics records that would be deleted
+        count = db.execute(
+            text("SELECT COUNT(*) FROM analytics_data WHERE created_at < :cutoff"),
+            {"cutoff": cutoff_date}
+        ).scalar() or 0
+    else:
+        # Actually delete analytics data
+        count = db.execute(
+            text("DELETE FROM analytics_data WHERE created_at < :cutoff"),
+            {"cutoff": cutoff_date}
+        ).rowcount
+    
+    action = "Would delete" if simulate else "Deleted"
+    logger.info(f"{action} {count} analytics records older than {cutoff_date}")
+    return count
 
 
-def export_user_data(user_id: int, db: Optional[Session] = None) -> Dict[str, Any]:
+def _apply_log_data_retention(db: Session, cutoff_date: datetime, simulate: bool = False) -> int:
     """
-    Export all user data for GDPR/CCPA compliance.
+    Apply retention policy to log data.
     
     Args:
-        user_id: ID of the user to export data for
-        db: Database session (optional)
+        db: Database session
+        cutoff_date: Date before which data should be deleted
+        simulate: If True, only simulates deletion
         
     Returns:
-        Dictionary containing all user data
+        Number of records that would be/were deleted
     """
-    return data_retention_service.export_user_data(user_id, db) 
+    # For system logs stored in database
+    tables = ["data_processing_logs", "data_breach_logs"]
+    total_count = 0
+    
+    for table in tables:
+        if simulate:
+            # Count log records that would be deleted
+            count = db.execute(
+                text(f"SELECT COUNT(*) FROM {table} WHERE timestamp < :cutoff"),
+                {"cutoff": cutoff_date}
+            ).scalar() or 0
+        else:
+            # Actually delete log data
+            count = db.execute(
+                text(f"DELETE FROM {table} WHERE timestamp < :cutoff"),
+                {"cutoff": cutoff_date}
+            ).rowcount
+        
+        total_count += count
+    
+    # For file-based logs
+    log_dir = Path("logs")
+    if log_dir.exists():
+        for log_file in log_dir.glob("*.log*"):
+            # Check file modification time
+            mtime = datetime.fromtimestamp(log_file.stat().st_mtime)
+            if mtime < cutoff_date:
+                if not simulate:
+                    try:
+                        log_file.unlink()
+                        logger.info(f"Deleted log file: {log_file}")
+                        total_count += 1
+                    except Exception as e:
+                        logger.error(f"Failed to delete log file {log_file}: {str(e)}")
+                else:
+                    logger.info(f"Would delete log file: {log_file}")
+                    total_count += 1
+    
+    action = "Would delete" if simulate else "Deleted"
+    logger.info(f"{action} {total_count} log records older than {cutoff_date}")
+    return total_count
+
+
+def _apply_temporary_files_retention(cutoff_date: datetime, simulate: bool = False) -> int:
+    """
+    Apply retention policy to temporary files.
+    
+    Args:
+        cutoff_date: Date before which files should be deleted
+        simulate: If True, only simulates deletion
+        
+    Returns:
+        Number of files that would be/were deleted
+    """
+    temp_dirs = ["uploads/temp", "tmp", "cache"]
+    total_count = 0
+    
+    for temp_dir_path in temp_dirs:
+        temp_dir = Path(temp_dir_path)
+        if not temp_dir.exists():
+            continue
+        
+        for file_path in temp_dir.glob("**/*"):
+            if file_path.is_file():
+                # Check file modification time
+                mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
+                if mtime < cutoff_date:
+                    if not simulate:
+                        try:
+                            file_path.unlink()
+                            logger.info(f"Deleted temporary file: {file_path}")
+                            total_count += 1
+                        except Exception as e:
+                            logger.error(f"Failed to delete temporary file {file_path}: {str(e)}")
+                    else:
+                        logger.info(f"Would delete temporary file: {file_path}")
+                        total_count += 1
+    
+    action = "Would delete" if simulate else "Deleted"
+    logger.info(f"{action} {total_count} temporary files older than {cutoff_date}")
+    return total_count
+
+
+def _apply_marketing_data_retention(db: Session, cutoff_date: datetime, simulate: bool = False) -> int:
+    """
+    Apply retention policy to marketing data.
+    
+    Args:
+        db: Database session
+        cutoff_date: Date before which data should be deleted
+        simulate: If True, only simulates deletion
+        
+    Returns:
+        Number of records that would be/were deleted
+    """
+    # For marketing-related consents that have been withdrawn
+    if simulate:
+        # Count marketing consents that would be deleted
+        count = db.execute(
+            text("SELECT COUNT(*) FROM user_consents WHERE consent_type = 'MARKETING' AND granted = 0 AND timestamp < :cutoff"),
+            {"cutoff": cutoff_date}
+        ).scalar() or 0
+    else:
+        # Actually delete marketing consents
+        count = db.execute(
+            text("DELETE FROM user_consents WHERE consent_type = 'MARKETING' AND granted = 0 AND timestamp < :cutoff"),
+            {"cutoff": cutoff_date}
+        ).rowcount
+    
+    action = "Would delete" if simulate else "Deleted"
+    logger.info(f"{action} {count} marketing consent records older than {cutoff_date}")
+    return count 

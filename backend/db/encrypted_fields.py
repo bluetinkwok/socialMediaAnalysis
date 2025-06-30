@@ -10,7 +10,9 @@ from typing import Any, Dict, List, Optional, Type, TypeVar, Union, cast
 
 from sqlalchemy import Column, TypeDecorator, String, Text, LargeBinary
 from sqlalchemy.ext.mutable import MutableDict, MutableList
-from sqlalchemy_utils import EncryptedType, StringEncryptedType
+
+# Remove the SQLAlchemy-Utils import and implement our own encryption types
+# from sqlalchemy_utils import EncryptedType, StringEncryptedType
 
 from core.encryption import encryption_service, EncryptionError
 
