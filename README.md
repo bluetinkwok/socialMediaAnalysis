@@ -29,6 +29,8 @@ socialMediaAnalysis/
 │   │   └── tests/        # Frontend unit tests
 │   └── scripts/          # Frontend build and deployment scripts
 ├── docker/               # Docker configuration files
+│   ├── security/         # Docker security profiles and scripts
+│   └── docs/             # Docker-specific documentation
 └── docs/                 # Project documentation
 ```
 
@@ -91,6 +93,19 @@ npm install
 npm start
 ```
 
+### Production Deployment
+```bash
+# Start production environment with enhanced security
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# Load AppArmor profile (Linux only)
+cd docker
+./security/load-apparmor.sh
+
+# Check security compliance
+./security/docker-security-check.sh
+```
+
 ## 📋 Features
 
 ### Core Functionality
@@ -101,11 +116,19 @@ npm start
 - [ ] Content organization system
 
 ### Security Features
-- [ ] Input validation and sanitization
-- [ ] Malware scanning for downloads
-- [ ] Rate limiting and anti-abuse
-- [ ] Authentication and authorization
-- [ ] Data encryption and privacy
+- [x] Input validation and sanitization
+- [x] Malware scanning for downloads
+- [x] Rate limiting and anti-abuse
+- [x] Authentication and authorization
+- [x] Data encryption and privacy
+- [x] Docker container security hardening
+  - [x] Multi-stage builds
+  - [x] Non-root container users
+  - [x] Read-only file systems
+  - [x] Resource limitations
+  - [x] Network isolation
+  - [x] Seccomp and AppArmor profiles
+  - [x] Container health monitoring
 
 ### Analytics Features
 - [x] Performance scoring algorithms
@@ -149,6 +172,7 @@ npm run test:e2e
 - [Testing Requirements](.taskmaster/docs/testing-requirements.md)
 - [Trend Detection Setup](backend/docs/trend_detection_setup.md)
 - [Success Pattern Recognition Guide](backend/docs/success_patterns_guide.md)
+- [Docker Security Hardening](docker/docs/container_security_hardening.md)
 - [API Documentation](docs/api.md) - Coming soon
 - [Deployment Guide](docs/deployment.md) - Coming soon
 

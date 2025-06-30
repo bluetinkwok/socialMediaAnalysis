@@ -1,0 +1,53 @@
+#include <tunables/global>
+
+profile docker-social-media {
+  #include <abstractions/base>
+
+  # Docker socket access
+  /run/docker.sock rw,
+  
+  # Application directories
+  /app/** rwmk,
+  /app/data/** rwmk,
+  /app/downloads/** rwmk,
+  /app/logs/** rwmk,
+  
+  # Temporary directories
+  /tmp/** rwmk,
+  
+  # System access
+  /bin/** r,
+  /usr/bin/** r,
+  /usr/local/bin/** r,
+  /lib/** r,
+  /usr/lib/** r,
+  /usr/local/lib/** r,
+  
+  # Python related
+  /usr/local/lib/python*/** r,
+  
+  # Network access
+  network,
+  
+  # Capabilities
+  capability net_bind_service,
+  capability dac_override,
+  
+  # Deny dangerous operations
+  deny /etc/passwd w,
+  deny /etc/shadow rwmk,
+  deny /etc/hosts w,
+  deny /etc/hostname w,
+  deny /proc/** w,
+  deny /sys/** w,
+  deny mount,
+  deny umount,
+  deny ptrace,
+  deny capability sys_admin,
+  deny capability sys_module,
+  
+  # File rules
+  owner /** r,
+  owner /app/** rwmk,
+  owner /tmp/** rwmk,
+} 

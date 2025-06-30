@@ -1,298 +1,204 @@
-# Docker Configuration
+# Social Media Success Analysis Platform
 
-This directory contains Docker and Docker Compose configurations for the Social Media Analysis Platform.
+A comprehensive platform for downloading, analyzing, and understanding successful social media content across multiple platforms (RedNote, Instagram, Threads, YouTube).
 
-## Quick Start
+## 🎯 Project Overview
 
-### Development Environment
+This platform helps creators, marketers, and businesses understand what makes content successful by:
+- Downloading content from multiple social media platforms
+- Analyzing engagement patterns and success metrics
+- Providing insights for content strategy optimization
+- Organizing content in a structured, searchable format
 
-1. **Copy environment file:**
-   ```bash
-   cp env.example .env
-   # Edit .env with your configuration
-   ```
+## 🏗️ Project Structure
 
-2. **Start development environment:**
-   ```bash
-   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-   ```
-
-3. **Access the application:**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
-   - API Documentation: http://localhost:8000/docs
-
-### Production Environment
-
-1. **Start production environment:**
-   ```bash
-   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
-   ```
-
-2. **Access through nginx reverse proxy:**
-   - Application: http://localhost
-
-## Services
-
-### Core Services
-
-- **backend**: FastAPI Python 3.12 backend
-- **frontend**: React TypeScript frontend
-- **redis**: Redis for caching and task queues
-- **clamav**: ClamAV for malware scanning
-
-### Optional Services
-
-- **nginx**: Reverse proxy (production only)
-
-## Configuration Files
-
-### docker-compose.yml
-Main Docker Compose configuration with all services defined.
-
-### docker-compose.dev.yml
-Development overrides:
-- Hot reload enabled
-- Debug logging
-- Source code volumes mounted
-- Development commands
-
-### docker-compose.prod.yml
-Production overrides:
-- Optimized builds
-- Production commands (gunicorn, serve)
-- No source code volumes
-- Nginx enabled
-
-### Dockerfiles
-
-#### backend/Dockerfile
-Multi-stage Python 3.12 Dockerfile:
-- **Development stage**: Hot reload, dev dependencies
-- **Production stage**: Optimized, minimal dependencies
-
-#### frontend/Dockerfile
-Multi-stage Node.js Dockerfile:
-- **Builder stage**: Build React app
-- **Production stage**: Serve static files
-- **Development stage**: Hot reload
-
-## Environment Variables
-
-Copy `env.example` to `.env` and configure:
-
-### Required Variables
-```bash
-REDIS_PASSWORD=your_secure_password
-JWT_SECRET_KEY=your_jwt_secret
-ENCRYPTION_KEY=your_encryption_key
+```
+socialMediaAnalysis/
+├── backend/              # Python 3.12 FastAPI backend
+│   ├── downloads/        # Downloaded content storage
+│   │   ├── youtube/      # YouTube content (videos, thumbnails, text)
+│   │   ├── instagram/    # Instagram content (posts, stories, reels)
+│   │   ├── threads/      # Threads content (text, links)
+│   │   └── rednote/      # RedNote content (mixed media)
+│   ├── assets/           # Backend assets (configs, models, SSL certs)
+│   ├── scripts/          # Backend utility scripts (DB, scraping, analytics)
+│   └── tests/            # Backend unit tests
+├── frontend/             # React TypeScript frontend
+│   ├── src/
+│   │   ├── assets/       # Frontend assets (images, styles, data)
+│   │   └── tests/        # Frontend unit tests
+│   └── scripts/          # Frontend build and deployment scripts
+├── docker/               # Docker configuration files
+│   ├── security/         # Docker security profiles and scripts
+│   └── docs/             # Docker-specific documentation
+└── docs/                 # Project documentation
 ```
 
-### Optional Variables
+## 🚀 Supported Platforms
+
+- **YouTube**: Videos (shorts & long-form), thumbnails, metadata, transcripts
+- **Instagram**: Posts, stories, reels, IGTV, comments, profile data
+- **Threads**: Text posts, links, engagement metrics
+- **RedNote**: Mixed content posts (text, images, videos)
+
+## 🛠️ Technology Stack
+
+### Backend (Python 3.12)
+- **FastAPI** - Modern web framework
+- **SQLite** - Database for metadata storage
+- **yt-dlp** - YouTube content downloading
+- **Selenium** - Web scraping automation
+- **BeautifulSoup** - HTML parsing
+- **pytest** - Testing framework
+
+### Frontend (React TypeScript)
+- **React 18** - UI framework
+- **TypeScript** - Type safety
+- **Material-UI** - Component library
+- **React Query** - Data fetching
+- **Jest/RTL** - Testing
+
+### Infrastructure
+- **Docker Compose** - Container orchestration
+- **SQLite** - Local database
+- **File System** - Media storage
+
+## 🔧 Development Setup
+
+### Prerequisites
+- Python 3.12+
+- Node.js 18+
+- Docker & Docker Compose
+
+### Quick Start
 ```bash
-# API Keys
-YOUTUBE_API_KEY=your_key
-INSTAGRAM_SESSION_ID=your_session
+# Clone the repository
+git clone <repository-url>
+cd socialMediaAnalysis
 
-# Logging
-LOG_LEVEL=INFO
-LOG_FORMAT=json
+# Start with Docker Compose
+docker-compose up --build
 
-# Rate Limiting
-RATE_LIMIT_REQUESTS=100
-RATE_LIMIT_WINDOW=3600
+# Or run locally:
+# Backend
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --reload
+
+# Frontend
+cd frontend
+npm install
+npm start
 ```
 
-## Volumes
-
-### Persistent Data
-- `redis_data`: Redis persistence
-- `clamav_data`: ClamAV virus definitions
-- `backend_data`: SQLite database
-- `downloads_data`: Downloaded content
-- `logs_data`: Application logs
-
-### Development Volumes
-- Source code mounted for hot reload
-- Anonymous volumes for node_modules
-
-## Networking
-
-### Internal Network
-- Custom bridge network: `172.20.0.0/16`
-- Service discovery via service names
-- Isolated from host network
-
-### Port Mapping
-- **3000**: Frontend (development)
-- **8000**: Backend API
-- **6379**: Redis (optional external access)
-- **3310**: ClamAV (optional external access)
-- **80/443**: Nginx (production)
-
-## Health Checks
-
-All services include health checks:
-- **Backend**: HTTP health endpoint
-- **Frontend**: HTTP availability
-- **Redis**: Connection test
-- **ClamAV**: Service status
-
-## Security Features
-
-### Container Security
-- Non-root users in all containers
-- Minimal base images (Alpine/Slim)
-- Security headers in nginx
-- Rate limiting
-
-### Network Security
-- Isolated container network
-- Internal service communication
-- Firewall-friendly port mapping
-
-### Data Security
-- Encrypted environment variables
-- Secure volume permissions
-- Malware scanning integration
-
-## Development Workflow
-
-### Starting Development
+### Production Deployment
 ```bash
-# Start all services
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+# Start production environment with enhanced security
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
-# Start specific services
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up backend frontend
+# Load AppArmor profile (Linux only)
+cd docker
+./security/load-apparmor.sh
 
-# Rebuild and start
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# Check security compliance
+./security/docker-security-check.sh
 ```
 
-### Debugging
+## 📋 Features
+
+### Core Functionality
+- [ ] Multi-platform content downloading
+- [ ] Automated content analysis
+- [x] Success pattern identification
+- [ ] Engagement metrics tracking
+- [ ] Content organization system
+
+### Security Features
+- [x] Input validation and sanitization
+- [x] Malware scanning for downloads
+- [x] Rate limiting and anti-abuse
+- [x] Authentication and authorization
+- [x] Data encryption and privacy
+- [x] Docker container security hardening
+  - [x] Multi-stage builds
+  - [x] Non-root container users
+  - [x] Read-only file systems
+  - [x] Resource limitations
+  - [x] Network isolation
+  - [x] Seccomp and AppArmor profiles
+  - [x] Container health monitoring
+
+### Analytics Features
+- [x] Performance scoring algorithms
+- [x] Trend identification
+  - [x] Scheduled trend detection
+  - [x] Performance trends
+  - [x] Viral content trends
+  - [x] Rising engagement trends
+  - [x] Quality content trends
+  - [x] Hashtag trends
+  - [x] Content pattern trends
+- [x] Success pattern recognition
+  - [x] Content type patterns (video, image, text)
+  - [x] Temporal patterns (optimal posting time, weekend success)
+  - [x] Content feature patterns (hashtags, mentions, content length)
+  - [x] Pattern confidence scoring
+  - [x] Pattern visualization dashboard
+- [ ] Comparative analysis
+- [ ] Export capabilities
+- [ ] Reporting dashboard
+
+## 🧪 Testing
+
 ```bash
-# View logs
-docker-compose logs -f backend
-docker-compose logs -f frontend
+# Backend tests
+cd backend
+pytest
 
-# Execute commands in containers
-docker-compose exec backend bash
-docker-compose exec frontend sh
+# Frontend tests  
+cd frontend
+npm test
 
-# Check service status
-docker-compose ps
+# E2E tests
+npm run test:e2e
 ```
 
-### Database Management
-```bash
-# Access SQLite database
-docker-compose exec backend sqlite3 /app/data/app.db
+## 📚 Documentation
 
-# Backup database
-docker-compose exec backend cp /app/data/app.db /app/data/backup.db
-```
+- [Product Requirements Document](.taskmaster/docs/prd.txt)
+- [Security Requirements](.taskmaster/docs/security-requirements.md)
+- [Testing Requirements](.taskmaster/docs/testing-requirements.md)
+- [Trend Detection Setup](backend/docs/trend_detection_setup.md)
+- [Success Pattern Recognition Guide](backend/docs/success_patterns_guide.md)
+- [Docker Security Hardening](docker/docs/container_security_hardening.md)
+- [API Documentation](docs/api.md) - Coming soon
+- [Deployment Guide](docs/deployment.md) - Coming soon
 
-## Production Deployment
+## 🤝 Contributing
 
-### Pre-deployment Checklist
-- [ ] Update environment variables in `.env`
-- [ ] Configure SSL certificates (if using HTTPS)
-- [ ] Set up external monitoring
-- [ ] Configure log rotation
-- [ ] Set up backup procedures
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-### Deployment Commands
-```bash
-# Pull latest images
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml pull
+## 📄 License
 
-# Deploy with zero downtime
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps --build backend
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps --build frontend
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-# Full deployment
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-```
+## ⚠️ Disclaimer
 
-### Monitoring
-```bash
-# Check resource usage
-docker stats
+This tool is designed for educational and research purposes. Please respect platform terms of service and applicable laws when using this software. Always ensure you have permission to download and analyze content.
 
-# View production logs
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs -f
+## 📞 Support
 
-# Health check all services
-curl http://localhost/health
-```
+For questions, issues, or contributions, please:
+- Open an issue on GitHub
+- Check the documentation in the `docs/` folder
+- Review the project tasks in `.taskmaster/`
 
-## Troubleshooting
+---
 
-### Common Issues
-
-1. **Port conflicts**
-   ```bash
-   # Check what's using ports
-   netstat -tulpn | grep :3000
-   netstat -tulpn | grep :8000
-   ```
-
-2. **Permission issues**
-   ```bash
-   # Fix volume permissions
-   sudo chown -R $USER:$USER backend/downloads
-   ```
-
-3. **Build failures**
-   ```bash
-   # Clean build
-   docker-compose down -v
-   docker system prune -f
-   docker-compose build --no-cache
-   ```
-
-4. **Database issues**
-   ```bash
-   # Reset database
-   docker-compose down
-   docker volume rm social-media-analysis_backend_data
-   docker-compose up
-   ```
-
-### Performance Tuning
-
-1. **Resource limits** (add to docker-compose.yml):
-   ```yaml
-   services:
-     backend:
-       deploy:
-         resources:
-           limits:
-             memory: 1G
-             cpus: '0.5'
-   ```
-
-2. **Redis optimization**:
-   ```bash
-   # Monitor Redis
-   docker-compose exec redis redis-cli monitor
-   ```
-
-## Maintenance
-
-### Regular Tasks
-- Update base images monthly
-- Rotate logs weekly
-- Backup database daily
-- Update virus definitions (automatic)
-
-### Updates
-```bash
-# Update Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-
-# Update images
-docker-compose pull
-docker-compose up -d
-``` 
+**Status**: 🚧 In Development - See [Tasks](.taskmaster/tasks/) for current progress 

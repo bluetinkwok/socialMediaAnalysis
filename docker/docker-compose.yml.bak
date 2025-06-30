@@ -134,6 +134,9 @@ services:
         reservations:
           cpus: '0.1'
           memory: 128M
+    # Secrets management
+    secrets:
+      - redis_password
 
   # ClamAV for malware scanning of downloaded content
   clamav:
@@ -238,3 +241,8 @@ networks:
     ipam:
       config:
         - subnet: 172.20.2.0/24
+
+# Docker secrets for sensitive data
+secrets:
+  redis_password:
+    file: ./secrets/redis_password.txt 

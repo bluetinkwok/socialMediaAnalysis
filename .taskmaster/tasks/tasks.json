@@ -1023,7 +1023,7 @@
         "id": 36,
         "title": "Implement Container Security and Docker Hardening",
         "description": "Enhance Docker container security by implementing specific hardening measures covering image building, runtime configuration, network isolation, and secrets management.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           2
         ],
@@ -1036,7 +1036,7 @@
             "title": "Configure Minimal Base Images and Non-Root Users",
             "description": "Update Dockerfiles to use minimal base images and configure containers to run as non-root users",
             "details": "Modify all Dockerfiles to use minimal base images such as python:3.12-slim instead of full images. Create dedicated non-root users in the Dockerfiles and configure the application to run under these users. Ensure proper file permissions are set for application files and directories. Update the Docker Compose configuration to enforce user constraints.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 36
           },
@@ -1045,7 +1045,7 @@
             "title": "Implement Container Network Isolation",
             "description": "Implement container network isolation to restrict container communications",
             "details": "Configure Docker networks to isolate containers based on their functional groups. Define custom bridge networks for different application components. Implement network policies to restrict which containers can communicate with each other. Update Docker Compose configuration to use these custom networks and ensure proper network segmentation. Document the network architecture and security controls.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 36
           },
@@ -1054,7 +1054,7 @@
             "title": "Implement Docker Secrets Management",
             "description": "Set up Docker secrets management for sensitive configuration data",
             "details": "Identify all sensitive configuration data (API keys, database credentials, etc.) currently stored in environment variables or configuration files. Implement Docker secrets or integrate with an external secrets management solution. Update the application code to read secrets from the appropriate locations. Modify Docker Compose files to use secrets instead of environment variables for sensitive data. Document the secrets management approach and provide guidelines for developers.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 36
           },
@@ -1063,7 +1063,7 @@
             "title": "Configure Resource Limits and Security Policies",
             "description": "Configure resource limits and security policies for containers",
             "details": "Set appropriate resource limits (CPU, memory, disk I/O) for all containers to prevent resource exhaustion attacks. Configure security policies including dropping unnecessary capabilities, applying Seccomp profiles to limit available syscalls, and implementing AppArmor profiles where applicable. Update Docker Compose configuration to include these security constraints. Test the impact of resource limits on application performance and adjust as needed.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 36
           },
@@ -1072,7 +1072,7 @@
             "title": "Implement Container Vulnerability Scanning",
             "description": "Implement container vulnerability scanning in the CI/CD pipeline",
             "details": "Select and integrate a container vulnerability scanning tool (such as Trivy, Clair, or Snyk) into the CI/CD pipeline. Configure the scanner to check for known vulnerabilities in base images, installed packages, and application dependencies. Set up policies for failing builds when critical vulnerabilities are detected. Implement a process for regular scanning of deployed container images. Create reports and notifications for identified vulnerabilities. Document the vulnerability management process including remediation procedures.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 36
           }
@@ -1201,7 +1201,7 @@
     ],
     "metadata": {
       "created": "2025-06-22T11:33:57.173Z",
-      "updated": "2025-06-30T10:32:46.711Z",
+      "updated": "2025-06-30T17:41:55.651Z",
       "description": "Tasks for master context"
     }
   }

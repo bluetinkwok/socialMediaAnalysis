@@ -79,4 +79,4 @@ volumes:
 # Production secrets
 secrets:
   redis_password_prod:
-    file: ./secrets/redis_password_prod.txt
+    file: ./secrets/redis_password_prod.txt 
