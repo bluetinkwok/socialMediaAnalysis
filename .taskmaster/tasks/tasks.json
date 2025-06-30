@@ -754,8 +754,62 @@
           12,
           31
         ],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Integrate ClamAV for Malware Scanning",
+            "description": "Set up and integrate the ClamAV daemon (clamd) into the application's file processing pipeline to perform basic malware scanning on uploaded or downloaded files.",
+            "dependencies": [],
+            "details": "Install ClamAV and configure clamd. Implement a service or function that takes a file path or stream and sends it to clamd for scanning using the `python-clamd` library. Handle scan results (clean, infected, error). Define actions for infected files (e.g., flag for quarantine).",
+            "status": "done",
+            "testStrategy": "Test with known clean and infected test files (e.g., EICAR test file) to verify correct detection and result handling."
+          },
+          {
+            "id": 2,
+            "title": "Implement File Type and Basic Pattern Analysis",
+            "description": "Add checks for file type verification using `python-magic` and implement basic pattern matching using `yara-python` for known malicious or suspicious patterns.",
+            "dependencies": [
+              1
+            ],
+            "details": "Use `python-magic` to determine the true file type, regardless of extension. Implement YARA rule loading and scanning using `yara-python`. Define a set of initial YARA rules for common threats or suspicious file characteristics. Integrate these checks into the processing pipeline, potentially before or after ClamAV scanning. Flag files matching patterns or having unexpected types.",
+            "status": "done",
+            "testStrategy": "Test with files of various types (correct and incorrect extensions) and files containing simple, defined YARA patterns to ensure detection works."
+          },
+          {
+            "id": 3,
+            "title": "Implement Metadata Sanitization",
+            "description": "Develop functionality to strip sensitive or unnecessary metadata, particularly EXIF data from images and videos, using libraries like PIL.",
+            "dependencies": [
+              2
+            ],
+            "details": "Based on the file type identified in the previous step, apply metadata stripping logic. For images (JPEG, PNG, etc.) and potentially videos, use PIL or similar libraries to read the file, remove EXIF and other metadata tags, and save a sanitized version. Ensure this process preserves the core content quality. Handle errors gracefully if metadata stripping fails or is not applicable.\n<info added on 2025-06-30T02:36:15.365Z>\nThe metadata sanitization functionality is fully implemented in the `metadata_sanitizer.py` module, which supports removal of sensitive metadata from multiple file types including images, PDFs, and office documents. This module contains dedicated methods for each file type and a main `sanitize_file` method that dispatches processing based on the file extension. For images, it uses the PIL library to strip EXIF and other metadata, while for PDFs it utilizes PyPDF2. The implementation includes robust error handling and manages temporary files to ensure safe processing without data loss. This module is integrated into the overall security pipeline and is invoked by the security integrator after files pass malware and pattern analysis checks. The current implementation is complete, effective, and preserves core content quality while removing sensitive metadata.\n</info added on 2025-06-30T02:36:15.365Z>",
+            "status": "done",
+            "testStrategy": "Test with image and video files containing EXIF data. Verify that the output files have significantly reduced or no EXIF data using metadata viewing tools."
+          },
+          {
+            "id": 4,
+            "title": "Integrate AI-based Inappropriate Content Filtering",
+            "description": "Integrate an AI model or service to analyze file content (especially images and text) for inappropriate material based on defined content filtering rules.",
+            "dependencies": [
+              3
+            ],
+            "details": "Determine the method for AI integration (e.g., calling an external API, running a local model). For image/video content, pass the sanitized file (from step 3) or relevant frames/previews to the AI service. For text content, pass the extracted text. Configure rules based on AI output scores or categories (e.g., nudity, violence, hate speech). Flag content that violates the rules.\n<info added on 2025-06-30T03:07:36.920Z>\nImplement a hybrid AI-based inappropriate content filtering system integrating third-party moderation APIs (e.g., AWS Rekognition, Azure Content Moderator) with a local fallback using pre-trained models to ensure high accuracy and availability. Develop a `ContentFilter` class to manage filtering operations, along with adapters for different AI services to maintain consistent interfaces. Configure filtering thresholds and categories such as adult content, violence, hate speech, and self-harm, with configurable severity levels (Low, Medium, High). For content handling, pass sanitized images directly to image moderation APIs, extract and moderate text from documents, and analyze key video frames as images. Integrate this filtering step into the existing SecurityIntegrator’s process_file method, ensuring only files cleared by prior security checks are processed. Flag content exceeding thresholds for review. Implement comprehensive logging and error handling throughout. Key files to create or modify include `backend/security/content_filter.py` for the main filtering logic, service adapters under `backend/security/content_filter_adapters/`, configuration updates in `core/config.py`, and enhancements to `backend/security/security_integrator.py` to incorporate the filtering step. This approach ensures a robust, configurable, and seamless integration of AI-powered content moderation within the security pipeline.\n</info added on 2025-06-30T03:07:36.920Z>",
+            "status": "done",
+            "testStrategy": "Test with various types of content (images, text) known to contain inappropriate material according to the filtering rules. Verify that the AI service is called correctly and the content is flagged appropriately."
+          },
+          {
+            "id": 5,
+            "title": "Develop File Quarantine and Safe Storage System",
+            "description": "Create the system for securely storing files identified as suspicious (by any previous step) in a quarantine area and storing clean files in a designated safe storage location with appropriate permissions.",
+            "dependencies": [
+              4
+            ],
+            "details": "Define the quarantine directory (isolated, restricted access). Implement logic to move or copy files flagged by ClamAV, YARA, AI filtering, or other checks to the quarantine directory. Store metadata about quarantined files (reason, timestamp, original location). Implement the safe storage mechanism for clean files, ensuring proper access control and permissions. Develop basic functions for reviewing and potentially releasing or deleting quarantined files (though the full UI/workflow for this might be a separate task).\n<info added on 2025-06-30T03:08:07.133Z>\nAdd the following details to the subtask to enhance the implementation plan with best practices and operational considerations for the quarantine and safe storage system:\n\n- Establish clear and documented quarantine policies and procedures, including guidelines for analysis, removal, and restoration of quarantined files to ensure consistent handling and compliance with security standards.\n\n- Implement regular monitoring and review processes for quarantined files to identify false positives, allowlisting opportunities, and timely decision-making on removal or restoration.\n\n- Develop an incident response plan specifically for quarantine breaches, including containment measures, recovery procedures, and post-incident reviews to improve future responses.\n\n- Incorporate role-based access control (RBAC) to restrict quarantine management operations to authorized personnel only, minimizing risk of unauthorized file restoration or deletion.\n\n- Design the quarantine directory as a single, centralized, isolated storage location with restricted permissions to simplify administration and enhance security.\n\n- Use secure file handling techniques such as renaming, encrypting, or otherwise neutralizing quarantined files to prevent accidental execution or spread of malware.\n\n- Integrate integrity verification mechanisms (e.g., checksums or hashes) for both quarantined and clean files to detect tampering or corruption.\n\n- Provide administrative API endpoints to support reviewing, approving, restoring, or permanently deleting quarantined files, enabling controlled workflows and auditability.\n\n- Ensure integration with authentication and security logging systems to maintain comprehensive audit trails and enforce access controls.\n\n- Define configurable retention policies for quarantined files to automate cleanup after a specified period, balancing storage management with forensic needs.\n\nThese additions align with cybersecurity best practices for file quarantine systems and will strengthen the overall security posture and operational effectiveness of the implemented solution.\n</info added on 2025-06-30T03:08:07.133Z>",
+            "status": "done",
+            "testStrategy": "Process files that are expected to be clean and files expected to be flagged. Verify that clean files are stored in the safe location and flagged files are moved to the quarantine directory with associated metadata."
+          }
+        ]
       },
       {
         "id": 33,
@@ -842,7 +896,7 @@
     ],
     "metadata": {
       "created": "2025-06-22T11:33:57.173Z",
-      "updated": "2025-06-29T16:42:33.709Z",
+      "updated": "2025-06-30T07:38:57.696Z",
       "description": "Tasks for master context"
     }
   }

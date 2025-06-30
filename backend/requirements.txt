@@ -1,65 +1,13 @@
-# FastAPI and web framework dependencies
-fastapi==0.103.1
-uvicorn==0.23.2
-python-multipart==0.0.6
-python-jose[cryptography]==3.3.0
-python-dotenv==1.0.0
-
-# Database dependencies
-sqlalchemy==2.0.21
-alembic==1.12.0
-
-# Pydantic for data validation
-pydantic==2.3.0
-pydantic-settings==2.0.3
-
-# HTTP client dependencies
-requests==2.31.0
-httpx==0.25.0
-aiohttp==3.8.5
-
-# Content parsing dependencies
-beautifulsoup4==4.12.2
-lxml==4.9.3
-selectolax==0.3.17
-feedparser==6.0.10
-html2text==2020.1.16
-
-# Browser automation dependencies
-selenium==4.16.0
-webdriver-manager==4.0.1
-
-# Content download dependencies
-yt-dlp==2023.12.30
-
-# Security and validation
-bcrypt==4.1.2
-passlib[bcrypt]==1.7.4
-validators>=0.22.0
-urllib3>=2.0.0
-tldextract>=5.1.0
-python-magic==0.4.27
-slowapi>=0.1.9
-redis>=5.0.0
-
-# Development and testing dependencies
-pytest==7.4.2
-pytest-asyncio==0.21.1
-pytest-cov==4.1.0
-coverage==7.3.2
-
-# Additional utilities
-pillow==10.1.0
-aiofiles==23.2.1
-
-# Anti-detection scraping dependencies
-undetected-chromedriver>=3.5.5
-fake-useragent>=1.5.1
-selenium-stealth>=1.0.6
-instaloader>=4.10.3
-
-# For trend scheduling
-schedule>=1.2.0
-
-# WebSockets
-websockets==11.0.3
+fastapi>=0.95.0
+uvicorn>=0.21.1
+python-multipart>=0.0.6
+python-jose>=3.3.0
+passlib>=1.7.4
+pydantic>=1.10.7
+pydantic[email]>=1.10.7
+python-magic>=0.4.27
+Pillow>=9.5.0
+PyPDF2>=3.0.1
+yara-python>=4.3.0
+pytest>=7.3.1
+httpx>=0.24.0

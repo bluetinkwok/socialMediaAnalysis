@@ -1,90 +1,104 @@
 """
-Configuration settings for the Social Media Analysis Platform
+Application Configuration
+
+This module provides configuration settings for the application.
 """
 
 import os
-from typing import List, Optional
-from pydantic_settings import BaseSettings
-from pydantic import Field
-
+from typing import List, Set, Dict, Any, Optional
+from functools import lru_cache
+from pathlib import Path
+from pydantic import BaseSettings, validator
 
 class Settings(BaseSettings):
-    """Application settings with environment variable support"""
+    """Application settings"""
     
-    # Application settings
+    # Base settings
     app_name: str = "Social Media Analysis Platform"
     app_version: str = "1.0.0"
-    environment: str = Field(default="development", env="ENVIRONMENT")
-    debug: bool = Field(default=True, env="DEBUG")
+    debug: bool = False
     
-    # Server settings
-    host: str = Field(default="0.0.0.0", env="HOST")
-    port: int = Field(default=8000, env="PORT")
-    
-    # Database settings
-    database_url: str = Field(default="sqlite:///./data/app.db", env="DATABASE_URL")
+    # API settings
+    api_prefix: str = "/api"
+    api_version: str = "v1"
     
     # Security settings
-    secret_key: str = Field(default="your-secret-key-change-in-production", env="SECRET_KEY")
-    jwt_algorithm: str = Field(default="HS256", env="JWT_ALGORITHM")
-    access_token_expire_minutes: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
+    secret_key: str = "your-secret-key-here"  # Should be overridden in .env
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
     
-    # CORS settings
-    allowed_origins: List[str] = Field(
-        default=["http://localhost:3000", "http://frontend:3000"],
-        env="ALLOWED_ORIGINS"
-    )
+    # File upload settings
+    upload_dir: str = "uploads"
+    allowed_file_extensions: Set[str] = {
+        "jpg", "jpeg", "png", "gif", "bmp", "webp",  # Images
+        "mp4", "mov", "avi", "webm",                 # Videos
+        "mp3", "wav", "ogg",                         # Audio
+        "pdf", "doc", "docx", "xls", "xlsx",         # Documents
+        "txt", "csv", "json", "xml"                  # Data files
+    }
+    allowed_mime_types: Set[str] = {
+        # Images
+        "image/jpeg", "image/png", "image/gif", "image/bmp", "image/webp",
+        # Videos
+        "video/mp4", "video/quicktime", "video/x-msvideo", "video/webm",
+        # Audio
+        "audio/mpeg", "audio/wav", "audio/ogg",
+        # Documents
+        "application/pdf", 
+        "application/msword", 
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        # Data files
+        "text/plain", "text/csv", "application/json", "application/xml"
+    }
+    max_file_size_mb: int = 100
     
-    # File storage settings
-    downloads_path: str = Field(default="./downloads", env="DOWNLOADS_PATH")
-    uploads_path: str = Field(default="./uploads", env="UPLOADS_PATH")
-    max_file_size_mb: int = Field(default=100, env="MAX_FILE_SIZE_MB")
-    allowed_file_types: List[str] = Field(
-        default=["jpg", "jpeg", "png", "gif", "mp4", "avi", "mov", "txt", "json"],
-        env="ALLOWED_FILE_TYPES"
-    )
+    # Security component settings
+    clamav_socket_path: str = "/var/run/clamav/clamd.sock"
+    clamav_timeout: int = 30
+    yara_rules_path: str = "security/rules"
+    security_log_path: str = "logs/security.log"
     
-    # Rate limiting settings
-    rate_limit_requests: int = Field(default=100, env="RATE_LIMIT_REQUESTS")
-    rate_limit_window: int = Field(default=3600, env="RATE_LIMIT_WINDOW")  # seconds
+    # Rate limiting
+    rate_limit_uploads: int = 10  # uploads per minute
     
-    # External service settings
-    redis_url: str = Field(default="redis://localhost:6379", env="REDIS_URL")
-    clamav_host: str = Field(default="localhost", env="CLAMAV_HOST")
-    clamav_port: int = Field(default=3310, env="CLAMAV_PORT")
+    # Database settings
+    database_url: str = "sqlite:///./app.db"
     
-    # Web scraping settings
-    user_agent: str = Field(
-        default="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        env="USER_AGENT"
-    )
-    request_timeout: int = Field(default=30, env="REQUEST_TIMEOUT")
-    max_retries: int = Field(default=3, env="MAX_RETRIES")
+    @validator("upload_dir")
+    def create_upload_dir(cls, v):
+        """Ensure upload directory exists"""
+        os.makedirs(v, exist_ok=True)
+        return v
     
-    # Logging settings
-    log_level: str = Field(default="INFO", env="LOG_LEVEL")
-    log_format: str = Field(default="json", env="LOG_FORMAT")
+    @validator("yara_rules_path")
+    def validate_yara_rules_path(cls, v):
+        """Validate YARA rules path"""
+        rules_dir = Path(v)
+        if not rules_dir.exists():
+            os.makedirs(v, exist_ok=True)
+        return v
     
-    # Analytics settings
-    enable_analytics: bool = Field(default=True, env="ENABLE_ANALYTICS")
-    analytics_batch_size: int = Field(default=100, env="ANALYTICS_BATCH_SIZE")
-    
-    # Malicious URL detection settings
-    url_blacklist_file: str = Field(default="./data/security/blacklist.txt", env="URL_BLACKLIST_FILE")
-    url_whitelist_file: str = Field(default="./data/security/whitelist.txt", env="URL_WHITELIST_FILE")
-    url_cache_dir: str = Field(default="./data/security/cache", env="URL_CACHE_DIR")
-    url_cache_duration: int = Field(default=86400, env="URL_CACHE_DURATION")  # 24 hours in seconds
+    @validator("security_log_path")
+    def validate_security_log_path(cls, v):
+        """Validate security log path"""
+        log_path = Path(v)
+        log_dir = log_path.parent
+        if not log_dir.exists():
+            os.makedirs(log_dir, exist_ok=True)
+        return v
     
     class Config:
         env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+        case_sensitive = True
 
-
-# Global settings instance
-settings = Settings()
-
-
+@lru_cache()
 def get_settings() -> Settings:
-    """Get application settings"""
-    return settings 
+    """
+    Get application settings.
+    
+    Returns:
+        Settings: Application settings
+    """
+    return Settings()
