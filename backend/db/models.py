@@ -38,6 +38,32 @@ class DownloadStatus(enum.Enum):
     CANCELLED = "cancelled"
 
 
+class Role(enum.Enum):
+    """User roles for access control"""
+    ADMIN = "admin"
+    USER = "user"
+    VIEWER = "viewer"
+
+
+class User(Base):
+    """User table for authentication and authorization"""
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True)
+    is_admin = Column(Boolean, default=False)
+    role = Column(Enum(Role), default=Role.USER, nullable=False)
+    last_login = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    def __repr__(self):
+        return f"<User(id={self.id}, username='{self.username}', role={self.role})>"
+
+
 class Platform(Base):
     """Platform configuration table"""
     __tablename__ = "platforms"

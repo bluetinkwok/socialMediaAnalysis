@@ -2,12 +2,17 @@
 Middleware for FastAPI application.
 """
 import json
-from typing import Callable
-from fastapi import Request, Response
+from typing import Callable, Dict, Optional, List
+from fastapi import Request, Response, HTTPException, status, Depends
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
+from fastapi.security import SecurityScopes
+from sqlalchemy.orm import Session
 
 from core.input_sanitizer import InputSanitizer
+from core.auth import get_current_user
+from db.models import User, Role
+from db.database import get_database
 
 class SanitizationMiddleware(BaseHTTPMiddleware):
     """
@@ -107,3 +112,89 @@ class SanitizationMiddleware(BaseHTTPMiddleware):
                 pass
         
         return request 
+
+class RoleBasedAccessControl:
+    """
+    Middleware for role-based access control.
+    """
+    
+    def __init__(
+        self, 
+        required_roles: List[Role] = None,
+        required_scopes: List[str] = None
+    ):
+        """
+        Initialize the RBAC middleware.
+        
+        Args:
+            required_roles: List of roles that can access the endpoint
+            required_scopes: List of scopes that can access the endpoint
+        """
+        self.required_roles = required_roles or []
+        self.required_scopes = required_scopes or []
+        
+    async def __call__(
+        self, 
+        request: Request, 
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_database)
+    ) -> None:
+        """
+        Check if the user has the required role.
+        
+        Args:
+            request: FastAPI request
+            current_user: Current authenticated user
+            db: Database session
+            
+        Raises:
+            HTTPException: If the user doesn't have the required role
+        """
+        if not self.required_roles and not self.required_scopes:
+            # No role requirements
+            return
+        
+        # Check if user has one of the required roles
+        if self.required_roles and current_user.role not in self.required_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions. Required roles: " + 
+                       ", ".join([role.value for role in self.required_roles])
+            )
+        
+        # For scope-based access, the checks are already done in get_current_user
+        return
+
+def admin_only(request: Request, current_user: User = Depends(get_current_user)) -> None:
+    """
+    Dependency for admin-only endpoints.
+    
+    Args:
+        request: FastAPI request
+        current_user: Current authenticated user
+        
+    Raises:
+        HTTPException: If the user is not an admin
+    """
+    if current_user.role != Role.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+
+def require_active_user(request: Request, current_user: User = Depends(get_current_user)) -> None:
+    """
+    Dependency for endpoints requiring an active user.
+    
+    Args:
+        request: FastAPI request
+        current_user: Current authenticated user
+        
+    Raises:
+        HTTPException: If the user is not active
+    """
+    if not current_user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is inactive"
+        ) 
