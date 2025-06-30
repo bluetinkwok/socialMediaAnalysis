@@ -7,6 +7,7 @@ leakage while still providing useful error messages and logging detailed errors.
 
 import logging
 import traceback
+import uuid
 from typing import Any, Dict, Optional, Union
 
 from fastapi import FastAPI, Request, status
@@ -29,295 +30,361 @@ class APIError(Exception):
         self,
         status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
         message: str = "An unexpected error occurred",
-        internal_code: Optional[str] = None,
+        internal_code: str = "ERR_SERVER",
         details: Optional[Dict[str, Any]] = None
     ):
         self.status_code = status_code
         self.message = message
-        self.internal_code = internal_code or f"ERR_{status_code}"
-        self.details = details
-        super().__init__(message)
+        self.internal_code = internal_code
+        self.details = details or {}
+        super().__init__(self.message)
 
 
 class BadRequestError(APIError):
-    """Bad request error."""
+    """400 Bad Request error."""
     
     def __init__(
         self,
-        message: str = "Invalid request",
-        internal_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        message: str = "Bad request",
+        details: Optional[Dict[str, Any]] = None,
+        internal_code: str = "ERR_BAD_REQUEST"
     ):
         super().__init__(
             status_code=status.HTTP_400_BAD_REQUEST,
             message=message,
-            internal_code=internal_code or "ERR_BAD_REQUEST",
+            internal_code=internal_code,
             details=details
         )
 
 
 class UnauthorizedError(APIError):
-    """Unauthorized error."""
+    """401 Unauthorized error."""
     
     def __init__(
         self,
         message: str = "Authentication required",
-        internal_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        details: Optional[Dict[str, Any]] = None,
+        internal_code: str = "ERR_UNAUTHORIZED"
     ):
         super().__init__(
             status_code=status.HTTP_401_UNAUTHORIZED,
             message=message,
-            internal_code=internal_code or "ERR_UNAUTHORIZED",
+            internal_code=internal_code,
             details=details
         )
 
 
 class ForbiddenError(APIError):
-    """Forbidden error."""
+    """403 Forbidden error."""
     
     def __init__(
         self,
-        message: str = "You don't have permission to access this resource",
-        internal_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        message: str = "Permission denied",
+        details: Optional[Dict[str, Any]] = None,
+        internal_code: str = "ERR_FORBIDDEN"
     ):
         super().__init__(
             status_code=status.HTTP_403_FORBIDDEN,
             message=message,
-            internal_code=internal_code or "ERR_FORBIDDEN",
+            internal_code=internal_code,
             details=details
         )
 
 
 class NotFoundError(APIError):
-    """Not found error."""
+    """404 Not Found error."""
     
     def __init__(
         self,
         message: str = "Resource not found",
-        internal_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        details: Optional[Dict[str, Any]] = None,
+        internal_code: str = "ERR_NOT_FOUND"
     ):
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
             message=message,
-            internal_code=internal_code or "ERR_NOT_FOUND",
+            internal_code=internal_code,
             details=details
         )
 
 
 class ConflictError(APIError):
-    """Conflict error."""
+    """409 Conflict error."""
     
     def __init__(
         self,
         message: str = "Resource conflict",
-        internal_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        details: Optional[Dict[str, Any]] = None,
+        internal_code: str = "ERR_CONFLICT"
     ):
         super().__init__(
             status_code=status.HTTP_409_CONFLICT,
             message=message,
-            internal_code=internal_code or "ERR_CONFLICT",
+            internal_code=internal_code,
             details=details
         )
 
 
 class RateLimitError(APIError):
-    """Rate limit exceeded error."""
+    """429 Too Many Requests error."""
     
     def __init__(
         self,
         message: str = "Rate limit exceeded",
-        internal_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        details: Optional[Dict[str, Any]] = None,
+        internal_code: str = "ERR_RATE_LIMIT"
     ):
         super().__init__(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             message=message,
-            internal_code=internal_code or "ERR_RATE_LIMIT",
+            internal_code=internal_code,
             details=details
         )
 
 
 class ServerError(APIError):
-    """Server error."""
+    """500 Internal Server Error."""
     
     def __init__(
         self,
         message: str = "Internal server error",
-        internal_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        details: Optional[Dict[str, Any]] = None,
+        internal_code: str = "ERR_SERVER"
     ):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message=message,
-            internal_code=internal_code or "ERR_SERVER",
+            internal_code=internal_code,
             details=details
         )
 
 
-async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
-    """Handle API errors with secure error responses."""
-    # Log detailed error information for debugging
-    log_message = f"{exc.internal_code}: {exc.message}"
-    if exc.status_code >= 500:
-        logger.error(
-            log_message,
-            extra={
-                "path": request.url.path,
-                "method": request.method,
-                "client_ip": request.client.host,
-                "details": exc.details,
-            },
-        )
-    else:
-        logger.warning(
-            log_message,
-            extra={
-                "path": request.url.path,
-                "method": request.method,
-                "client_ip": request.client.host,
-                "details": exc.details,
-            },
-        )
-
-    # Return a clean error response without sensitive details
-    response = {
+def _build_error_response(
+    status_code: int,
+    message: str,
+    code: str,
+    details: Optional[Dict[str, Any]] = None,
+    error_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Build a standardized error response.
+    
+    Args:
+        status_code: HTTP status code
+        message: Human-readable error message
+        code: Error code for clients to use for handling
+        details: Additional details about the error (only included in debug mode)
+        error_id: Unique ID for tracking the error (only for 500 errors)
+        
+    Returns:
+        Standardized error response dictionary
+    """
+    error_response = {
         "error": {
-            "code": exc.internal_code,
-            "message": exc.message,
+            "code": code,
+            "message": message
         }
     }
     
-    # Only include details in development mode
-    if settings.debug and exc.details:
-        response["error"]["details"] = exc.details
+    # Only include error_id for 500 errors
+    if error_id and status_code >= 500:
+        error_response["error"]["error_id"] = error_id
+    
+    # Only include details in debug mode
+    if details and settings.debug:
+        error_response["error"]["details"] = details
+    
+    return error_response
+
+
+async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
+    """
+    Handle custom API errors.
+    
+    Args:
+        request: FastAPI request object
+        exc: APIError exception
+        
+    Returns:
+        JSONResponse with standardized error format
+    """
+    # Generate error ID for 500 errors
+    error_id = str(uuid.uuid4()) if exc.status_code >= 500 else None
+    
+    # Log the error with appropriate severity
+    log_method = logger.error if exc.status_code >= 500 else logger.warning
+    log_message = f"API Error {exc.status_code}: {exc.message}"
+    
+    if error_id:
+        log_message += f" (Error ID: {error_id})"
+    
+    log_method(log_message, extra={
+        "status_code": exc.status_code,
+        "error_code": exc.internal_code,
+        "details": exc.details,
+        "path": request.url.path,
+        "method": request.method,
+        "client_ip": request.client.host if request.client else None,
+        "error_id": error_id
+    })
     
     return JSONResponse(
         status_code=exc.status_code,
-        content=response,
+        content=_build_error_response(
+            status_code=exc.status_code,
+            message=exc.message,
+            code=exc.internal_code,
+            details=exc.details,
+            error_id=error_id
+        )
     )
 
 
 async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
-    """Handle HTTP exceptions with secure error responses."""
-    # Map HTTP exceptions to our custom error format
+    """
+    Handle FastAPI/Starlette HTTP exceptions.
+    
+    Args:
+        request: FastAPI request object
+        exc: HTTPException
+        
+    Returns:
+        JSONResponse with standardized error format
+    """
+    # Generate error ID for 500 errors
+    error_id = str(uuid.uuid4()) if exc.status_code >= 500 else None
+    
+    # Create error code from status code
     error_code = f"ERR_{exc.status_code}"
     
-    # Log the error
-    log_level = logging.ERROR if exc.status_code >= 500 else logging.WARNING
-    logger.log(
-        log_level,
-        f"{error_code}: {exc.detail}",
-        extra={
-            "path": request.url.path,
-            "method": request.method,
-            "client_ip": request.client.host,
-            "status_code": exc.status_code,
-        },
-    )
+    # Log the error with appropriate severity
+    log_method = logger.error if exc.status_code >= 500 else logger.warning
+    log_message = f"HTTP Exception {exc.status_code}: {exc.detail}"
     
-    # Return a clean error response
-    response = {
-        "error": {
-            "code": error_code,
-            "message": exc.detail,
-        }
-    }
+    if error_id:
+        log_message += f" (Error ID: {error_id})"
+    
+    log_method(log_message, extra={
+        "status_code": exc.status_code,
+        "error_code": error_code,
+        "path": request.url.path,
+        "method": request.method,
+        "client_ip": request.client.host if request.client else None,
+        "error_id": error_id
+    })
     
     return JSONResponse(
         status_code=exc.status_code,
-        content=response,
+        content=_build_error_response(
+            status_code=exc.status_code,
+            message=str(exc.detail),
+            code=error_code,
+            error_id=error_id
+        )
     )
 
 
-async def validation_exception_handler(request: Request, exc: Union[RequestValidationError, ValidationError]) -> JSONResponse:
-    """Handle validation errors with secure error responses."""
-    # Extract error details but sanitize them
-    sanitized_errors = []
+async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """
+    Handle Pydantic validation errors.
+    
+    Args:
+        request: FastAPI request object
+        exc: RequestValidationError
+        
+    Returns:
+        JSONResponse with standardized error format
+    """
+    # Extract validation error details
+    details = {"errors": []}
     for error in exc.errors():
-        sanitized_errors.append({
+        details["errors"].append({
             "loc": error["loc"],
             "msg": error["msg"],
-            "type": error["type"],
+            "type": error["type"]
         })
     
     # Log the validation error
     logger.warning(
-        "Validation error",
+        f"Validation Error: {exc}",
         extra={
             "path": request.url.path,
             "method": request.method,
-            "client_ip": request.client.host,
-            "errors": sanitized_errors,
-        },
-    )
-    
-    # Return a clean error response
-    response = {
-        "error": {
-            "code": "ERR_VALIDATION",
-            "message": "Validation error",
+            "client_ip": request.client.host if request.client else None,
+            "details": details
         }
-    }
-    
-    # Only include error details in development mode
-    if settings.debug:
-        response["error"]["details"] = sanitized_errors
+    )
     
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content=response,
+        content=_build_error_response(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            message="Validation error",
+            code="ERR_VALIDATION",
+            details=details
+        )
     )
 
 
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Handle all other exceptions with secure error responses."""
-    # Generate a unique error ID for tracking
-    import uuid
+    """
+    Handle all other unhandled exceptions.
+    
+    Args:
+        request: FastAPI request object
+        exc: Any unhandled exception
+        
+    Returns:
+        JSONResponse with standardized error format
+    """
+    # Generate error ID for tracking
     error_id = str(uuid.uuid4())
     
-    # Log the detailed error for debugging
-    logger.error(
-        f"Unhandled exception: {str(exc)}",
-        extra={
-            "error_id": error_id,
-            "path": request.url.path,
-            "method": request.method,
-            "client_ip": request.client.host,
-            "exception_type": exc.__class__.__name__,
-            "traceback": traceback.format_exc(),
-        },
-    )
+    # Get exception details
+    exc_type = type(exc).__name__
+    exc_msg = str(exc)
+    stack_trace = traceback.format_exc()
     
-    # Return a generic error message without leaking implementation details
-    response = {
-        "error": {
-            "code": "ERR_SERVER",
-            "message": "An unexpected error occurred",
-            "error_id": error_id,  # Include the error ID for support reference
-        }
+    # Create detailed error information for logging
+    details = {
+        "type": exc_type,
+        "message": exc_msg,
+        "stack_trace": stack_trace
     }
     
-    # Only include exception details in development mode
-    if settings.debug:
-        response["error"]["details"] = {
-            "exception": str(exc),
-            "type": exc.__class__.__name__,
+    # Log the error
+    logger.error(
+        f"Unhandled Exception: {exc_type}: {exc_msg} (Error ID: {error_id})",
+        exc_info=True,
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+            "client_ip": request.client.host if request.client else None,
+            "error_id": error_id
         }
+    )
     
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content=response,
+        content=_build_error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="An unexpected error occurred",
+            code="ERR_SERVER",
+            details=details if settings.debug else None,
+            error_id=error_id
+        )
     )
 
 
 def add_error_handlers(app: FastAPI) -> None:
-    """Add all error handlers to the FastAPI application."""
+    """
+    Add all error handlers to the FastAPI application.
+    
+    Args:
+        app: FastAPI application instance
+    """
     app.add_exception_handler(APIError, api_error_handler)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
-    app.add_exception_handler(RequestValidationError, validation_exception_handler)
-    app.add_exception_handler(ValidationError, validation_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_error_handler)
+    app.add_exception_handler(ValidationError, validation_error_handler)
     app.add_exception_handler(Exception, generic_exception_handler) 
