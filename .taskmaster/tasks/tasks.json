@@ -959,21 +959,124 @@
           5,
           33
         ],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Secure Key Management and Rotation",
+            "description": "Set up a secure system for generating, storing, retrieving, and rotating encryption keys required for database and file encryption.",
+            "dependencies": [],
+            "details": "Choose a suitable secrets management solution (e.g., cloud provider KMS, HashiCorp Vault, or a secure application-level system). Implement functions for key generation, secure storage, and retrieval. Define and implement a strategy for key rotation, including handling data re-encryption if necessary.",
+            "status": "done",
+            "testStrategy": "Verify keys can be securely stored and retrieved by the application. Test the key rotation process and ensure old keys can still decrypt data encrypted with them until re-encryption is complete."
+          },
+          {
+            "id": 2,
+            "title": "Implement Database Field Encryption",
+            "description": "Encrypt sensitive fields within the database using the established key management system.",
+            "dependencies": [
+              1
+            ],
+            "details": "Identify all sensitive database fields requiring encryption. Use `sqlalchemy-utils` or a similar library to integrate encryption/decryption logic into the ORM/data access layer. Modify database schema if necessary (e.g., change column types to store encrypted data). Ensure application logic correctly encrypts data before writing and decrypts data after reading.",
+            "status": "done",
+            "testStrategy": "Verify sensitive data is stored in an encrypted format in the database. Test CRUD operations on encrypted fields to ensure data integrity and correct decryption upon retrieval."
+          },
+          {
+            "id": 3,
+            "title": "Implement File Encryption for Stored Media",
+            "description": "Encrypt user-uploaded files and other stored media using the established key management system.",
+            "dependencies": [
+              1
+            ],
+            "details": "Identify types of files and storage locations requiring encryption. Implement file encryption/decryption logic using a standard cryptographic library (e.g., `cryptography`). Integrate with the key management system (Subtask 1) to manage file encryption keys. Ensure files are encrypted upon upload/creation and decrypted securely upon authorized access.",
+            "status": "done",
+            "testStrategy": "Verify files are stored in an encrypted format on disk/cloud storage. Test file upload, download, and access workflows to ensure correct encryption and decryption."
+          },
+          {
+            "id": 4,
+            "title": "Implement Data Retention Policies",
+            "description": "Define and implement automated processes for deleting data (database records and files) based on predefined retention periods.",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Define specific retention periods for different categories of data. Implement background jobs or scheduled tasks to identify data exceeding its retention period. Implement logic to securely delete identified data, ensuring encrypted data and associated keys (if applicable) are handled correctly during deletion.",
+            "status": "done",
+            "testStrategy": "Set up test data with different timestamps. Verify that the automated process correctly identifies and deletes data that has passed its retention period without affecting data within the period."
+          },
+          {
+            "id": 5,
+            "title": "Implement GDPR/CCPA Compliance Features (Export/Deletion)",
+            "description": "Implement user-facing features allowing users to request export and deletion of their personal data in compliance with GDPR/CCPA.",
+            "dependencies": [
+              2,
+              3,
+              4
+            ],
+            "details": "Develop API endpoints or UI components for 'Request Data Export' and 'Request Data Deletion'. For export, gather all user-associated data from the database (decrypting fields as needed) and files (decrypting as needed), and package it into a portable format (e.g., JSON, CSV). For deletion, trigger the data deletion process for the specific user, potentially leveraging the logic developed in Subtask 4.",
+            "status": "done",
+            "testStrategy": "Test the data export feature for a test user, verifying all relevant data is included and correctly formatted. Test the data deletion feature for a test user, verifying that all their data is permanently removed from the system."
+          }
+        ]
       },
       {
         "id": 36,
         "title": "Implement Container Security and Docker Hardening",
-        "description": "Secure Docker containers with hardening measures, non-root users, network isolation, and secrets management.",
-        "details": "Use minimal base images (python:3.12-slim), create non-root users for container execution, implement container network isolation, use Docker secrets for sensitive data, set resource limits (CPU, memory, disk), scan containers for vulnerabilities, and implement proper file permissions and security headers.",
-        "testStrategy": "Test container security with vulnerability scans, verify non-root execution, test network isolation, and validate secrets management.",
-        "priority": "medium",
+        "description": "Enhance Docker container security by implementing specific hardening measures covering image building, runtime configuration, network isolation, and secrets management.",
+        "status": "pending",
         "dependencies": [
           2
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "medium",
+        "details": "Implement the following Docker hardening measures:\n- Use minimal base images (e.g., `python:3.12-slim`).\n- Configure containers to run as non-root users.\n- Implement container network isolation using custom networks or network policies.\n- Utilize Docker secrets or an external secrets management system for sensitive data.\n- Set resource limits (CPU, memory, disk I/O) for containers.\n- Scan container images for known vulnerabilities as part of the CI/CD pipeline.\n- Ensure proper file permissions are set within the container file system.\n- Consider using read-only file systems for containers where applicable.\n- Limit container capabilities by dropping unnecessary privileges (`--cap-drop`).\n- Apply Seccomp and AppArmor profiles for enhanced syscall filtering.",
+        "testStrategy": "Test container security by:\n- Verifying the use of minimal base images.\n- Confirming containers run with non-root user IDs.\n- Testing network isolation rules to ensure containers cannot access unauthorized resources.\n- Validating secrets management implementation.\n- Checking that resource limits are enforced.\n- Reviewing vulnerability scan reports for images.\n- Verifying file permissions within running containers.\n- Testing read-only file system enforcement.\n- Confirming unnecessary capabilities are dropped.\n- Verifying Seccomp/AppArmor profiles are applied and effective.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Configure Minimal Base Images and Non-Root Users",
+            "description": "Update Dockerfiles to use minimal base images and configure containers to run as non-root users",
+            "details": "Modify all Dockerfiles to use minimal base images such as python:3.12-slim instead of full images. Create dedicated non-root users in the Dockerfiles and configure the application to run under these users. Ensure proper file permissions are set for application files and directories. Update the Docker Compose configuration to enforce user constraints.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 36
+          },
+          {
+            "id": 2,
+            "title": "Implement Container Network Isolation",
+            "description": "Implement container network isolation to restrict container communications",
+            "details": "Configure Docker networks to isolate containers based on their functional groups. Define custom bridge networks for different application components. Implement network policies to restrict which containers can communicate with each other. Update Docker Compose configuration to use these custom networks and ensure proper network segmentation. Document the network architecture and security controls.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 36
+          },
+          {
+            "id": 3,
+            "title": "Implement Docker Secrets Management",
+            "description": "Set up Docker secrets management for sensitive configuration data",
+            "details": "Identify all sensitive configuration data (API keys, database credentials, etc.) currently stored in environment variables or configuration files. Implement Docker secrets or integrate with an external secrets management solution. Update the application code to read secrets from the appropriate locations. Modify Docker Compose files to use secrets instead of environment variables for sensitive data. Document the secrets management approach and provide guidelines for developers.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 36
+          },
+          {
+            "id": 4,
+            "title": "Configure Resource Limits and Security Policies",
+            "description": "Configure resource limits and security policies for containers",
+            "details": "Set appropriate resource limits (CPU, memory, disk I/O) for all containers to prevent resource exhaustion attacks. Configure security policies including dropping unnecessary capabilities, applying Seccomp profiles to limit available syscalls, and implementing AppArmor profiles where applicable. Update Docker Compose configuration to include these security constraints. Test the impact of resource limits on application performance and adjust as needed.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 36
+          },
+          {
+            "id": 5,
+            "title": "Implement Container Vulnerability Scanning",
+            "description": "Implement container vulnerability scanning in the CI/CD pipeline",
+            "details": "Select and integrate a container vulnerability scanning tool (such as Trivy, Clair, or Snyk) into the CI/CD pipeline. Configure the scanner to check for known vulnerabilities in base images, installed packages, and application dependencies. Set up policies for failing builds when critical vulnerabilities are detected. Implement a process for regular scanning of deployed container images. Create reports and notifications for identified vulnerabilities. Document the vulnerability management process including remediation procedures.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 36
+          }
+        ]
       },
       {
         "id": 37,
@@ -987,7 +1090,53 @@
           34
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Security Event Logging",
+            "description": "Implement security event logging for authentication and access events",
+            "details": "Set up comprehensive logging for security-relevant events including login attempts (successful and failed), password changes, permission changes, and access to sensitive resources. Use structlog and python-json-logger to create structured logs with consistent fields. Ensure logs include relevant context such as user IDs, IP addresses, timestamps, and resource identifiers. Implement log rotation and retention policies. Create a central logging configuration that can be used throughout the application.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 37
+          },
+          {
+            "id": 2,
+            "title": "Implement Real-Time Security Monitoring and Alerting",
+            "description": "Set up real-time monitoring and alerting for security events",
+            "details": "Implement a real-time monitoring system for security events using prometheus-client to expose metrics. Define key security metrics to monitor (login failure rates, API rate limiting, permission errors, etc.). Create alert rules for suspicious activity patterns such as multiple failed login attempts, unusual access patterns, or potential brute force attacks. Set up notification channels for alerts (email, Slack, etc.). Implement a dashboard for security monitoring with visualization of key metrics and recent alerts.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 37
+          },
+          {
+            "id": 3,
+            "title": "Implement Intrusion Detection System",
+            "description": "Implement intrusion detection capabilities for identifying suspicious activities",
+            "details": "Develop intrusion detection capabilities to identify potential security threats. Implement rules to detect suspicious patterns such as unusual login times, access from new locations, excessive failed attempts, or unusual data access patterns. Create a mechanism to track and correlate events across different parts of the application. Implement rate limiting and automatic temporary blocking for suspicious IPs. Set up a process for security incident review and response. Document the intrusion detection approach and response procedures.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 37
+          },
+          {
+            "id": 4,
+            "title": "Implement Comprehensive Audit Trails",
+            "description": "Create comprehensive audit trails for security-relevant actions",
+            "details": "Implement a comprehensive audit trail system to track all security-relevant actions in the application. Create database models and storage mechanisms for audit records. Implement middleware or decorators to automatically capture audit information for key operations (data modifications, permission changes, configuration changes, etc.). Ensure audit records are immutable and tamper-evident. Create an audit log viewer interface for administrators. Implement filtering and search capabilities for audit logs. Document the audit trail implementation and usage guidelines.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 37
+          },
+          {
+            "id": 5,
+            "title": "Implement Security Compliance Reporting",
+            "description": "Implement security compliance reporting and dashboards",
+            "details": "Develop security compliance reporting capabilities to demonstrate adherence to security requirements and policies. Create dashboards showing key security metrics and compliance status. Implement automated report generation for security events, incidents, and audit trails. Create templates for common compliance reports (failed logins, access attempts to sensitive data, etc.). Implement data export capabilities for compliance reviews. Ensure reports can be generated for specific time periods to support regular security reviews.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 37
+          }
+        ]
       },
       {
         "id": 38,
@@ -1001,12 +1150,58 @@
           37
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Dependency Vulnerability Scanning",
+            "description": "Set up dependency scanning for identifying vulnerable packages",
+            "details": "Integrate dependency scanning tools (pip-audit and safety) to identify vulnerabilities in Python dependencies. Set up automated scanning as part of the CI/CD pipeline to prevent the introduction of vulnerable packages. Implement regular scheduled scans of existing dependencies to catch newly discovered vulnerabilities. Create a process for reviewing and addressing identified vulnerabilities. Set up notifications for critical security issues in dependencies. Document the dependency scanning process and remediation procedures.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 38
+          },
+          {
+            "id": 2,
+            "title": "Implement Static Code Analysis for Security",
+            "description": "Implement static code analysis for security vulnerabilities",
+            "details": "Set up static code analysis tools (bandit and semgrep) to scan the codebase for security vulnerabilities and coding issues. Create custom rules for project-specific security concerns. Integrate static analysis into the CI/CD pipeline to catch issues during development. Configure appropriate severity levels and failure thresholds. Implement a process for reviewing and addressing identified issues. Create documentation for developers on common security issues and how to avoid them. Set up regular scheduled scans of the entire codebase.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 38
+          },
+          {
+            "id": 3,
+            "title": "Implement Content Security Policy and Security Headers",
+            "description": "Configure and enforce Content Security Policy (CSP) and security headers",
+            "details": "Define and implement a comprehensive Content Security Policy (CSP) to prevent cross-site scripting (XSS) and other code injection attacks. Configure additional security headers including X-Content-Type-Options, X-Frame-Options, Referrer-Policy, and Permissions-Policy. Implement middleware to consistently apply security headers to all responses. Set up CSP reporting to monitor for potential violations. Test the CSP configuration to ensure it doesn't break legitimate application functionality. Document the security headers implementation and purpose of each header.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 38
+          },
+          {
+            "id": 4,
+            "title": "Implement Automated Security Patch Management",
+            "description": "Set up automated security patch management",
+            "details": "Implement an automated security patch management process for dependencies and system components. Set up dependabot or similar tools to automatically create pull requests for security updates. Define policies for prioritizing and applying security patches based on severity. Implement automated testing for security patches to verify they don't break functionality. Create a schedule for regular security updates of all components. Document the patch management process including emergency procedures for critical vulnerabilities.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 38
+          },
+          {
+            "id": 5,
+            "title": "Implement Security Compliance Validation",
+            "description": "Implement security compliance validation and reporting",
+            "details": "Develop a security compliance validation framework to verify that security controls are properly implemented and effective. Create automated tests to validate security configurations and controls. Implement regular security compliance checks as part of the CI/CD pipeline. Generate compliance reports showing the status of security controls and any identified issues. Create a dashboard for tracking security compliance over time. Document the compliance requirements and validation procedures. Set up notifications for compliance failures.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 38
+          }
+        ]
       }
     ],
     "metadata": {
       "created": "2025-06-22T11:33:57.173Z",
-      "updated": "2025-06-30T09:11:55.485Z",
+      "updated": "2025-06-30T10:32:46.711Z",
       "description": "Tasks for master context"
     }
   }

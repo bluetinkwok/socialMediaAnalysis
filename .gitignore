@@ -24,10 +24,6 @@ node_modules/
 # OS specific
 .DS_Store
 
-# Task files
-# tasks.json
-# tasks/ 
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -691,3 +687,7 @@ backend/assets/browser-profiles/
 frontend/build/
 frontend/dist/
 frontend/src/assets/temp/ 
+
+# Task files
+# tasks.json
+# tasks/ 

@@ -60,6 +60,20 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
+    # Privacy and GDPR fields
+    anonymized = Column(Boolean, default=False)
+    anonymized_at = Column(DateTime(timezone=True))
+    data_export_requested_at = Column(DateTime(timezone=True))
+    data_export_completed_at = Column(DateTime(timezone=True))
+    deletion_requested_at = Column(DateTime(timezone=True))
+    processing_restricted = Column(Boolean, default=False)
+    processing_restricted_at = Column(DateTime(timezone=True))
+    
+    # Relationships for privacy
+    consents = relationship("UserConsent", back_populates="user", cascade="all, delete-orphan")
+    data_requests = relationship("DataSubjectRequest", back_populates="user")
+    privacy_settings = relationship("PrivacySettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', role={self.role})>"
 

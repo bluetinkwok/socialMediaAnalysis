@@ -8,7 +8,8 @@ import os
 from typing import List, Set, Dict, Any, Optional
 from functools import lru_cache
 from pathlib import Path
-from pydantic import BaseSettings, validator, Field
+from pydantic import Field, validator
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     """Application settings"""
