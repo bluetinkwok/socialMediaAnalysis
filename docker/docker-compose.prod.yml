@@ -23,7 +23,7 @@ services:
       - /app/data/temp
     security_opt:
       - seccomp=./security/seccomp-profile.json
-      - apparmor=docker-default
+      - apparmor=docker-social-media
     # Additional resource limits for production
     deploy:
       resources:
@@ -33,31 +33,63 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
+    # File descriptor and process limits
+    ulimits:
+      nofile:
+        soft: 4096
+        hard: 8192
+      nproc:
+        soft: 200
+        hard: 300
+    # Use Docker secrets in production
+    secrets:
+      - source: backend_api_key
+        target: api_key
+      - source: backend_jwt_secret
+        target: jwt_secret
 
   frontend:
     build:
       target: production
     environment:
       - NODE_ENV=production
+      - REACT_APP_API_URL=https://${DOMAIN:-localhost}/api
     # No source code volumes in production
-    command: ["serve", "-s", "build", "-l", "3000"]
+    command: ["serve", "-s", "build", "-l", "3000", "--no-clipboard", "--single"]
     # Enhanced security for production
     read_only: true
     tmpfs:
       - /tmp
     security_opt:
       - seccomp=./security/seccomp-profile.json
-      - apparmor=docker-default
+      - apparmor=docker-social-media
+    # File descriptor and process limits
+    ulimits:
+      nofile:
+        soft: 2048
+        hard: 4096
+      nproc:
+        soft: 100
+        hard: 200
 
   redis:
-    command: redis-server --appendonly yes --save 900 1 --save 300 10 --save 60 10000
+    command: redis-server --appendonly yes --save 900 1 --save 300 10 --save 60 10000 --protected-mode yes
     # Enhanced security for production
     security_opt:
       - seccomp=./security/seccomp-profile.json
+      - apparmor=docker-social-media
     # Use Docker secrets in production
     secrets:
       - source: redis_password_prod
         target: redis_password
+    # File descriptor and process limits
+    ulimits:
+      nofile:
+        soft: 4096
+        hard: 8192
+      nproc:
+        soft: 100
+        hard: 200
 
   # Enable nginx in production
   nginx:
@@ -65,7 +97,21 @@ services:
     # Enhanced security for production
     security_opt:
       - seccomp=./security/seccomp-profile.json
-      - apparmor=docker-default
+      - apparmor=docker-social-media
+    # File descriptor and process limits
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 16384
+      nproc:
+        soft: 100
+        hard: 200
+    # Use Docker secrets for SSL certificates
+    secrets:
+      - source: ssl_cert
+        target: /etc/nginx/ssl/cert.pem
+      - source: ssl_key
+        target: /etc/nginx/ssl/key.pem
 
 # Production-specific volumes
 volumes:
@@ -80,3 +126,11 @@ volumes:
 secrets:
   redis_password_prod:
     file: ./secrets/redis_password_prod.txt
+  backend_api_key:
+    file: ./secrets/backend_api_key.txt
+  backend_jwt_secret:
+    file: ./secrets/backend_jwt_secret.txt
+  ssl_cert:
+    file: ./secrets/ssl_cert.pem
+  ssl_key:
+    file: ./secrets/ssl_key.pem

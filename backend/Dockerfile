@@ -39,6 +39,12 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     chromium \
     chromium-driver \
+    && rm -rf /var/lib/apt/lists/* && \
+    # Set proper permissions
+    chmod 1777 /tmp && \
+    # Add security packages
+    apt-get update && apt-get install -y \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -55,14 +61,19 @@ RUN mkdir -p \
     downloads/threads/videos downloads/threads/images downloads/threads/text \
     downloads/rednote/videos downloads/rednote/images downloads/rednote/text \
     data logs \
-    && chown -R appuser:appuser /app
+    && chown -R appuser:appuser /app \
+    && chmod -R 750 /app/downloads /app/data /app/logs
+
+# Copy healthcheck script
+COPY --chown=appuser:appuser healthcheck.sh /app/healthcheck.sh
+RUN chmod 550 /app/healthcheck.sh
 
 # Expose port
 EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD /app/healthcheck.sh
 
 # Switch to non-root user
 USER appuser
@@ -86,7 +97,10 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     chromium \
     chromium-driver \
-    && rm -rf /var/lib/apt/lists/*
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* && \
+    # Set proper permissions
+    chmod 1777 /tmp
 
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser
@@ -109,14 +123,15 @@ RUN mkdir -p \
 
 # Set read-only permissions for application code
 RUN chmod -R 550 /app/*.py /app/api /app/analytics /app/core /app/db /app/models /app/security /app/services /app/utils \
-    && chmod -R 750 /app/downloads /app/data /app/logs
+    && chmod -R 750 /app/downloads /app/data /app/logs \
+    && chmod 550 /app/healthcheck.sh
 
 # Expose port
 EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD /app/healthcheck.sh
 
 # Switch to non-root user
 USER appuser

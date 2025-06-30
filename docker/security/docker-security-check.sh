@@ -1,121 +1,225 @@
 #!/bin/bash
 
-# Docker Security Best Practices Check Script
-# This script checks for common Docker security issues in the project
+# Docker Security Best Practices Checker
+# This script checks for common Docker security best practices in your configuration
 
-echo "=== Docker Security Best Practices Check ==="
-echo
+# Color codes for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No Color
 
-# Check if Docker is running
-if ! docker info &>/dev/null; then
-  echo "❌ Docker is not running. Please start Docker and try again."
-  exit 1
-fi
+# Function to check if Docker is running
+check_docker_running() {
+  if ! docker info &>/dev/null; then
+    echo -e "${RED}❌ Docker is not running. Please start Docker and try again.${NC}"
+    exit 1
+  fi
+  echo -e "${GREEN}✅ Docker is running${NC}"
+}
 
-echo "✅ Docker is running"
-
-# Check Dockerfile for best practices
-check_dockerfile() {
-  local dockerfile=$1
-  echo
-  echo "Checking $dockerfile..."
+# Function to check if a container is running as non-root
+check_non_root_user() {
+  local container=$1
+  local user=$(docker exec "$container" id -u 2>/dev/null)
   
-  # Check for USER instruction (non-root user)
-  if grep -q "^USER " "$dockerfile"; then
-    echo "✅ Non-root USER directive found"
-  else
-    echo "❌ No USER directive found. Containers may be running as root"
+  if [ $? -ne 0 ]; then
+    echo -e "${YELLOW}⚠️  Container $container is not running${NC}"
+    return
   fi
   
-  # Check for multi-stage builds
-  if grep -q "^FROM.*AS.*" "$dockerfile"; then
-    echo "✅ Multi-stage build detected"
+  if [ "$user" = "0" ]; then
+    echo -e "${RED}❌ Container $container is running as root (UID 0)${NC}"
   else
-    echo "⚠️ No multi-stage build detected"
-  fi
-  
-  # Check for HEALTHCHECK
-  if grep -q "^HEALTHCHECK " "$dockerfile" || grep -q "healthcheck.sh" "$dockerfile"; then
-    echo "✅ HEALTHCHECK directive found"
-  else
-    echo "⚠️ No HEALTHCHECK directive found"
-  fi
-  
-  # Check for latest tag
-  if grep -q "FROM.*:latest" "$dockerfile"; then
-    echo "❌ ':latest' tag used. Consider using specific version tags"
-  else
-    echo "✅ No 'latest' tags detected"
-  fi
-  
-  # Check for ADD vs COPY
-  if grep -q "^ADD " "$dockerfile"; then
-    echo "⚠️ ADD instruction found. COPY is generally preferred for security"
-  else
-    echo "✅ No ADD instructions found (COPY preferred)"
+    echo -e "${GREEN}✅ Container $container is running as non-root (UID $user)${NC}"
   fi
 }
 
-# Check docker-compose files for best practices
-check_compose() {
-  local composefile=$1
-  echo
-  echo "Checking $composefile..."
+# Function to check if a container has privileged mode enabled
+check_privileged_mode() {
+  local container=$1
+  local privileged=$(docker inspect --format='{{.HostConfig.Privileged}}' "$container" 2>/dev/null)
   
-  # Check for privileged mode
-  if grep -q "privileged: true" "$composefile"; then
-    echo "❌ Container(s) running in privileged mode detected"
-  else
-    echo "✅ No containers running in privileged mode"
+  if [ $? -ne 0 ]; then
+    echo -e "${YELLOW}⚠️  Container $container does not exist${NC}"
+    return
   fi
   
-  # Check for network mode: host
-  if grep -q "network_mode: host" "$composefile"; then
-    echo "⚠️ Container(s) using host network mode detected"
+  if [ "$privileged" = "true" ]; then
+    echo -e "${RED}❌ Container $container is running in privileged mode${NC}"
   else
-    echo "✅ No containers using host network mode"
-  fi
-  
-  # Check for read-only root filesystem
-  if grep -q "read_only: true" "$composefile"; then
-    echo "✅ Read-only root filesystem detected"
-  else
-    echo "⚠️ No read-only root filesystem configured"
-  fi
-  
-  # Check for resource limits
-  if grep -q "cpus:" "$composefile" || grep -q "memory:" "$composefile"; then
-    echo "✅ Resource limits defined"
-  else
-    echo "⚠️ No resource limits defined"
-  fi
-  
-  # Check for healthcheck
-  if grep -q "healthcheck:" "$composefile"; then
-    echo "✅ Healthcheck configuration found"
-  else
-    echo "⚠️ No healthcheck configuration found"
-  fi
-  
-  # Check for security options
-  if grep -q "security_opt:" "$composefile"; then
-    echo "✅ Security options configured"
-  else
-    echo "⚠️ No security options configured"
+    echo -e "${GREEN}✅ Container $container is not running in privileged mode${NC}"
   fi
 }
 
-# Check Dockerfiles
-for dockerfile in $(find .. -name "Dockerfile*" -not -path "*/\.*"); do
-  check_dockerfile "$dockerfile"
-done
+# Function to check if a container has limited capabilities
+check_capabilities() {
+  local container=$1
+  local caps=$(docker inspect --format='{{range $cap := .HostConfig.CapAdd}}{{$cap}} {{end}}' "$container" 2>/dev/null)
+  
+  if [ $? -ne 0 ]; then
+    echo -e "${YELLOW}⚠️  Container $container does not exist${NC}"
+    return
+  fi
+  
+  if [ -z "$caps" ]; then
+    echo -e "${GREEN}✅ Container $container has no additional capabilities${NC}"
+  else
+    echo -e "${YELLOW}⚠️  Container $container has additional capabilities: $caps${NC}"
+  fi
+}
 
-# Check docker-compose files
-for composefile in $(find . -name "docker-compose*.yml"); do
-  check_compose "$composefile"
-done
+# Function to check if a container has resource limits
+check_resource_limits() {
+  local container=$1
+  local memory_limit=$(docker inspect --format='{{.HostConfig.Memory}}' "$container" 2>/dev/null)
+  local cpu_limit=$(docker inspect --format='{{.HostConfig.NanoCpus}}' "$container" 2>/dev/null)
+  
+  if [ $? -ne 0 ]; then
+    echo -e "${YELLOW}⚠️  Container $container does not exist${NC}"
+    return
+  fi
+  
+  if [ "$memory_limit" = "0" ]; then
+    echo -e "${YELLOW}⚠️  Container $container has no memory limit set${NC}"
+  else
+    echo -e "${GREEN}✅ Container $container has memory limit: $(($memory_limit/1024/1024))MB${NC}"
+  fi
+  
+  if [ "$cpu_limit" = "0" ]; then
+    echo -e "${YELLOW}⚠️  Container $container has no CPU limit set${NC}"
+  else
+    echo -e "${GREEN}✅ Container $container has CPU limit: $(($cpu_limit/1000000000)) cores${NC}"
+  fi
+}
 
-echo
-echo "=== Security Check Complete ==="
-echo "Review any warnings or errors and address them according to your security requirements."
-echo
+# Function to check if a container has a read-only filesystem
+check_readonly_filesystem() {
+  local container=$1
+  local readonly=$(docker inspect --format='{{.HostConfig.ReadonlyRootfs}}' "$container" 2>/dev/null)
+  
+  if [ $? -ne 0 ]; then
+    echo -e "${YELLOW}⚠️  Container $container does not exist${NC}"
+    return
+  fi
+  
+  if [ "$readonly" = "true" ]; then
+    echo -e "${GREEN}✅ Container $container has a read-only root filesystem${NC}"
+  else
+    echo -e "${YELLOW}⚠️  Container $container does not have a read-only root filesystem${NC}"
+  fi
+}
+
+# Function to check if a container has a healthcheck
+check_healthcheck() {
+  local container=$1
+  local healthcheck=$(docker inspect --format='{{.Config.Healthcheck}}' "$container" 2>/dev/null)
+  
+  if [ $? -ne 0 ]; then
+    echo -e "${YELLOW}⚠️  Container $container does not exist${NC}"
+    return
+  fi
+  
+  if [ "$healthcheck" = "<nil>" ] || [ -z "$healthcheck" ]; then
+    echo -e "${YELLOW}⚠️  Container $container does not have a healthcheck defined${NC}"
+  else
+    echo -e "${GREEN}✅ Container $container has a healthcheck defined${NC}"
+  fi
+}
+
+# Function to check Docker network configuration
+check_network_configuration() {
+  local networks=$(docker network ls --format "{{.Name}}" | grep -v "bridge\|host\|none")
+  
+  if [ -z "$networks" ]; then
+    echo -e "${YELLOW}⚠️  No custom Docker networks found. Using custom networks is recommended for container isolation.${NC}"
+  else
+    echo -e "${GREEN}✅ Custom Docker networks found: $networks${NC}"
+  fi
+}
+
+# Function to check Docker secrets
+check_secrets() {
+  local secrets=$(docker secret ls --format "{{.Name}}" 2>/dev/null)
+  
+  if [ $? -ne 0 ]; then
+    echo -e "${YELLOW}⚠️  Docker secrets are not available (not running in swarm mode)${NC}"
+    return
+  fi
+  
+  if [ -z "$secrets" ]; then
+    echo -e "${YELLOW}⚠️  No Docker secrets found. Using Docker secrets is recommended for sensitive data.${NC}"
+  else
+    echo -e "${GREEN}✅ Docker secrets found: $secrets${NC}"
+  fi
+}
+
+# Function to check Docker version
+check_docker_version() {
+  local version=$(docker version --format '{{.Server.Version}}')
+  echo -e "${GREEN}ℹ️  Docker version: $version${NC}"
+  
+  # Check if version is recent (arbitrary cutoff at 20.10)
+  if [[ "$version" < "20.10" ]]; then
+    echo -e "${YELLOW}⚠️  Docker version is older than 20.10. Consider upgrading for latest security features.${NC}"
+  else
+    echo -e "${GREEN}✅ Docker version is recent${NC}"
+  fi
+}
+
+# Function to check if images are scanned for vulnerabilities
+check_vulnerability_scanning() {
+  if [ -d "../vulnerability-reports" ] || [ -d "./vulnerability-reports" ]; then
+    echo -e "${GREEN}✅ Vulnerability scanning reports directory exists${NC}"
+  else
+    echo -e "${YELLOW}⚠️  No vulnerability scanning reports found. Consider running scan-vulnerabilities.sh${NC}"
+  fi
+}
+
+# Main function
+main() {
+  echo -e "${GREEN}=== Docker Security Best Practices Checker ===${NC}"
+  echo
+  
+  check_docker_running
+  check_docker_version
+  
+  echo
+  echo -e "${GREEN}=== Checking Network Configuration ===${NC}"
+  check_network_configuration
+  
+  echo
+  echo -e "${GREEN}=== Checking Docker Secrets ===${NC}"
+  check_secrets
+  
+  echo
+  echo -e "${GREEN}=== Checking Vulnerability Scanning ===${NC}"
+  check_vulnerability_scanning
+  
+  echo
+  echo -e "${GREEN}=== Checking Running Containers ===${NC}"
+  
+  # Get list of running containers
+  containers=$(docker ps --format "{{.Names}}")
+  
+  if [ -z "$containers" ]; then
+    echo -e "${YELLOW}⚠️  No containers are currently running${NC}"
+  else
+    for container in $containers; do
+      echo
+      echo -e "${GREEN}Container: $container${NC}"
+      check_non_root_user "$container"
+      check_privileged_mode "$container"
+      check_capabilities "$container"
+      check_resource_limits "$container"
+      check_readonly_filesystem "$container"
+      check_healthcheck "$container"
+    done
+  fi
+  
+  echo
+  echo -e "${GREEN}=== Security Check Complete ===${NC}"
+}
+
+# Run the main function
+main

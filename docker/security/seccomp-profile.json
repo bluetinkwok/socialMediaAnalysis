@@ -32,11 +32,14 @@
         "epoll_create",
         "epoll_create1",
         "epoll_ctl",
+        "epoll_ctl_old",
         "epoll_pwait",
         "epoll_wait",
+        "epoll_wait_old",
         "eventfd",
         "eventfd2",
         "execve",
+        "execveat",
         "exit",
         "exit_group",
         "faccessat",
@@ -77,10 +80,12 @@
         "getresgid",
         "getresuid",
         "getrlimit",
+        "get_robust_list",
         "getrusage",
         "getsid",
         "getsockname",
         "getsockopt",
+        "get_thread_area",
         "gettid",
         "gettimeofday",
         "getuid",
@@ -90,11 +95,13 @@
         "inotify_init1",
         "inotify_rm_watch",
         "io_cancel",
+        "ioctl",
         "io_destroy",
         "io_getevents",
+        "ioprio_get",
+        "ioprio_set",
         "io_setup",
         "io_submit",
-        "ioctl",
         "kill",
         "lchown",
         "lgetxattr",
@@ -109,14 +116,23 @@
         "lstat",
         "madvise",
         "memfd_create",
+        "mincore",
         "mkdir",
         "mkdirat",
         "mknod",
         "mknodat",
         "mlock",
+        "mlock2",
+        "mlockall",
         "mmap",
         "mount",
         "mprotect",
+        "mq_getsetattr",
+        "mq_notify",
+        "mq_open",
+        "mq_timedreceive",
+        "mq_timedsend",
+        "mq_unlink",
         "mremap",
         "msgctl",
         "msgget",
@@ -124,6 +140,7 @@
         "msgsnd",
         "msync",
         "munlock",
+        "munlockall",
         "munmap",
         "nanosleep",
         "newfstatat",
@@ -137,17 +154,23 @@
         "prctl",
         "pread64",
         "preadv",
+        "preadv2",
         "prlimit64",
         "pselect6",
         "pwrite64",
         "pwritev",
+        "pwritev2",
         "read",
+        "readahead",
         "readlink",
         "readlinkat",
         "readv",
+        "recv",
         "recvfrom",
         "recvmmsg",
         "recvmsg",
+        "remap_file_pages",
+        "removexattr",
         "rename",
         "renameat",
         "renameat2",
@@ -161,12 +184,13 @@
         "rt_sigsuspend",
         "rt_sigtimedwait",
         "rt_tgsigqueueinfo",
-        "sched_get_priority_max",
-        "sched_get_priority_min",
         "sched_getaffinity",
         "sched_getattr",
         "sched_getparam",
+        "sched_get_priority_max",
+        "sched_get_priority_min",
         "sched_getscheduler",
+        "sched_rr_get_interval",
         "sched_setaffinity",
         "sched_setattr",
         "sched_setparam",
@@ -178,12 +202,13 @@
         "semget",
         "semop",
         "semtimedop",
+        "send",
         "sendfile",
         "sendmmsg",
         "sendmsg",
         "sendto",
-        "set_robust_list",
-        "set_tid_address",
+        "setfsgid",
+        "setfsuid",
         "setgid",
         "setgroups",
         "setitimer",
@@ -194,20 +219,29 @@
         "setresuid",
         "setreuid",
         "setrlimit",
+        "set_robust_list",
         "setsid",
         "setsockopt",
+        "set_thread_area",
+        "set_tid_address",
         "setuid",
+        "setxattr",
         "shmat",
         "shmctl",
         "shmdt",
         "shmget",
         "shutdown",
         "sigaltstack",
+        "signalfd",
+        "signalfd4",
+        "sigreturn",
         "socket",
+        "socketcall",
         "socketpair",
         "splice",
         "stat",
         "statfs",
+        "statx",
         "symlink",
         "symlinkat",
         "sync",
@@ -219,12 +253,12 @@
         "time",
         "timer_create",
         "timer_delete",
-        "timer_getoverrun",
-        "timer_gettime",
-        "timer_settime",
         "timerfd_create",
         "timerfd_gettime",
         "timerfd_settime",
+        "timer_getoverrun",
+        "timer_gettime",
+        "timer_settime",
         "times",
         "tkill",
         "truncate",
@@ -236,10 +270,70 @@
         "utimensat",
         "utimes",
         "vfork",
+        "vmsplice",
         "wait4",
         "waitid",
+        "waitpid",
         "write",
         "writev"
+      ],
+      "action": "SCMP_ACT_ALLOW"
+    },
+    {
+      "names": [
+        "personality"
+      ],
+      "action": "SCMP_ACT_ALLOW",
+      "args": [
+        {
+          "index": 0,
+          "value": 0,
+          "op": "SCMP_CMP_EQ"
+        }
+      ]
+    },
+    {
+      "names": [
+        "personality"
+      ],
+      "action": "SCMP_ACT_ALLOW",
+      "args": [
+        {
+          "index": 0,
+          "value": 8,
+          "op": "SCMP_CMP_EQ"
+        }
+      ]
+    },
+    {
+      "names": [
+        "personality"
+      ],
+      "action": "SCMP_ACT_ALLOW",
+      "args": [
+        {
+          "index": 0,
+          "value": 4294967295,
+          "op": "SCMP_CMP_EQ"
+        }
+      ]
+    },
+    {
+      "names": [
+        "clone"
+      ],
+      "action": "SCMP_ACT_ALLOW",
+      "args": [
+        {
+          "index": 0,
+          "value": 2080505856,
+          "op": "SCMP_CMP_MASKED_EQ"
+        }
+      ]
+    },
+    {
+      "names": [
+        "chroot"
       ],
       "action": "SCMP_ACT_ALLOW"
     }

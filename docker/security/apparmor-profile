@@ -1,53 +1,76 @@
 #include <tunables/global>
 
-profile docker-social-media {
+profile social-media-container flags=(attach_disconnected,mediate_deleted) {
   #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/python>
 
-  # Docker socket access
-  /run/docker.sock rw,
+  # Deny all file writes by default
+  deny /** w,
+  deny /** wl,
+  deny /** k,
+  deny /** m,
+  deny /** ix,
   
-  # Application directories
-  /app/** rwmk,
-  /app/data/** rwmk,
-  /app/downloads/** rwmk,
-  /app/logs/** rwmk,
+  # Allow specific directories for application
+  /app/** r,
+  /app/static/** r,
+  /app/media/** rw,
+  /app/logs/** rw,
+  /app/uploads/** rw,
+  /app/temp/** rw,
   
-  # Temporary directories
-  /tmp/** rwmk,
+  # Allow python to run
+  /usr/bin/python* rix,
+  /usr/local/bin/python* rix,
   
-  # System access
-  /bin/** r,
-  /usr/bin/** r,
-  /usr/local/bin/** r,
-  /lib/** r,
-  /usr/lib/** r,
-  /usr/local/lib/** r,
+  # Allow networking
+  network inet tcp,
+  network inet udp,
   
-  # Python related
-  /usr/local/lib/python*/** r,
+  # Allow DNS resolution
+  /etc/hosts r,
+  /etc/resolv.conf r,
   
-  # Network access
-  network,
+  # Allow SSL certificates
+  /etc/ssl/certs/** r,
   
-  # Capabilities
+  # Allow reading timezone data
+  /usr/share/zoneinfo/** r,
+  /etc/timezone r,
+  
+  # Allow reading locale data
+  /usr/share/locale/** r,
+  /usr/lib/locale/** r,
+  
+  # Allow reading system configuration
+  /etc/passwd r,
+  /etc/group r,
+  
+  # Allow process operations
   capability net_bind_service,
   capability dac_override,
   
-  # Deny dangerous operations
-  deny /etc/passwd w,
-  deny /etc/shadow rwmk,
-  deny /etc/hosts w,
-  deny /etc/hostname w,
-  deny /proc/** w,
-  deny /sys/** w,
-  deny mount,
-  deny umount,
-  deny ptrace,
+  # Deny dangerous capabilities
   deny capability sys_admin,
+  deny capability sys_ptrace,
   deny capability sys_module,
+  deny capability sys_boot,
   
-  # File rules
-  owner /** r,
-  owner /app/** rwmk,
-  owner /tmp/** rwmk,
+  # Allow necessary system calls
+  mount options=(ro, remount) -> /,
+  umount,
+  
+  # Allow reading proc filesystem for own process
+  owner @{PROC}/@{pid}/cmdline r,
+  owner @{PROC}/@{pid}/status r,
+  owner @{PROC}/@{pid}/stat r,
+  owner @{PROC}/@{pid}/environ r,
+  owner @{PROC}/@{pid}/fd/ r,
+  
+  # Allow temporary file access
+  /tmp/** rw,
+  owner /tmp/** rw,
+  /var/tmp/** rw,
+  owner /var/tmp/** rw,
 } 

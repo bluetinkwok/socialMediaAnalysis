@@ -1,104 +1,119 @@
 #!/bin/bash
 
 # Docker Security Baseline Generator
-# This script creates a security baseline for Docker containers
+# This script generates security baselines for Docker containers
 
-echo "=== Docker Security Baseline Generator ==="
-echo
+# Color codes for output
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No Color
 
 # Check if Docker is running
 if ! docker info &>/dev/null; then
-  echo "❌ Docker is not running. Please start Docker and try again."
+  echo -e "${RED}❌ Docker is not running. Please start Docker and try again.${NC}"
   exit 1
 fi
 
-echo "✅ Docker is running"
+echo -e "${GREEN}=== Docker Security Baseline Generator ===${NC}"
+echo
 
 # Create output directory
-BASELINE_DIR="./security/baseline"
+BASELINE_DIR="./security-baselines"
 mkdir -p "$BASELINE_DIR"
 
-echo "Creating Docker security baseline in $BASELINE_DIR"
+echo "Generating security baselines for running containers..."
+echo "Baselines will be saved to $BASELINE_DIR"
+echo
 
-# Generate Docker info baseline
-echo "Generating Docker info baseline..."
-docker info > "$BASELINE_DIR/docker-info.txt"
+# Get list of running containers
+containers=$(docker ps --format "{{.Names}}")
 
-# Generate Docker version baseline
-echo "Generating Docker version baseline..."
-docker version > "$BASELINE_DIR/docker-version.txt"
-
-# Generate system info
-echo "Generating system info baseline..."
-{
-  echo "=== System Information ==="
-  echo "Date: $(date)"
-  echo "Hostname: $(hostname)"
-  echo "Kernel: $(uname -r)"
-  echo "OS: $(uname -s)"
-  echo "Architecture: $(uname -m)"
-  echo
-  echo "=== CPU Information ==="
-  if [ "$(uname)" == "Darwin" ]; then
-    sysctl -n machdep.cpu.brand_string
-    sysctl -n hw.ncpu
-  else
-    grep "model name" /proc/cpuinfo | head -1
-    grep -c processor /proc/cpuinfo
-  fi
-  echo
-  echo "=== Memory Information ==="
-  if [ "$(uname)" == "Darwin" ]; then
-    sysctl hw.memsize | awk '{print $2/1024/1024/1024 " GB"}'
-  else
-    grep MemTotal /proc/meminfo
-  fi
-} > "$BASELINE_DIR/system-info.txt"
-
-# Generate Docker network baseline
-echo "Generating Docker network baseline..."
-docker network ls > "$BASELINE_DIR/docker-networks.txt"
-
-# Generate Docker security options
-echo "Generating Docker security options baseline..."
-{
-  echo "=== Docker Security Options ==="
-  echo "Docker Root Dir: $(docker info | grep "Docker Root Dir" | awk '{print $4}')"
-  echo "Security Options:"
-  docker info | grep -A 10 "Security Options:" | grep -v "Security Options:"
-} > "$BASELINE_DIR/docker-security.txt"
-
-# Generate Docker daemon configuration
-echo "Generating Docker daemon configuration baseline..."
-if [ -f "/etc/docker/daemon.json" ]; then
-  cp "/etc/docker/daemon.json" "$BASELINE_DIR/daemon.json"
-else
-  echo "{}" > "$BASELINE_DIR/daemon.json"
-  echo "No Docker daemon configuration found, created empty file"
+if [ -z "$containers" ]; then
+  echo -e "${YELLOW}⚠️  No containers are currently running${NC}"
+  echo "Please start your containers first, then run this script again."
+  exit 1
 fi
 
-# Generate container security baseline for running containers
-echo "Generating container security baseline for running containers..."
-{
-  echo "=== Running Containers ==="
-  docker ps -a --format "table {{.ID}}\t{{.Image}}\t{{.Command}}\t{{.Status}}\t{{.Names}}"
+for container in $containers; do
+  echo "Generating baseline for container: $container"
+  
+  # Create container-specific directory
+  container_dir="$BASELINE_DIR/$container"
+  mkdir -p "$container_dir"
+  
+  # Get container details
+  echo "  - Getting container configuration..."
+  docker inspect "$container" > "$container_dir/container-config.json"
+  
+  # Get process list
+  echo "  - Getting process list..."
+  docker exec "$container" ps aux > "$container_dir/processes.txt" 2>/dev/null
+  
+  # Get network connections
+  echo "  - Getting network connections..."
+  docker exec "$container" netstat -tulpn > "$container_dir/network-connections.txt" 2>/dev/null
+  
+  # Get open ports
+  echo "  - Getting exposed ports..."
+  docker port "$container" > "$container_dir/exposed-ports.txt" 2>/dev/null
+  
+  # Get mounted volumes
+  echo "  - Getting mounted volumes..."
+  docker inspect --format='{{range .Mounts}}{{.Source}}:{{.Destination}}:{{.Mode}} {{end}}' "$container" > "$container_dir/mounted-volumes.txt"
+  
+  # Get environment variables
+  echo "  - Getting environment variables (redacted)..."
+  docker exec "$container" env | grep -v "PASSWORD\|SECRET\|KEY\|TOKEN" > "$container_dir/environment.txt" 2>/dev/null
+  
+  # Get user information
+  echo "  - Getting user information..."
+  docker exec "$container" id > "$container_dir/user-info.txt" 2>/dev/null
+  
+  # Get capabilities
+  echo "  - Getting capabilities..."
+  docker exec "$container" capsh --print > "$container_dir/capabilities.txt" 2>/dev/null
+  
+  # Get installed packages (try different package managers)
+  echo "  - Getting installed packages..."
+  docker exec "$container" dpkg -l > "$container_dir/packages-dpkg.txt" 2>/dev/null
+  docker exec "$container" rpm -qa > "$container_dir/packages-rpm.txt" 2>/dev/null
+  docker exec "$container" apk info > "$container_dir/packages-apk.txt" 2>/dev/null
+  
+  # Get system information
+  echo "  - Getting system information..."
+  docker exec "$container" uname -a > "$container_dir/system-info.txt" 2>/dev/null
+  
+  echo "Baseline for $container completed"
+  echo "Files saved to $container_dir"
   echo
-  echo "=== Container Security Details ==="
-  for container in $(docker ps -q); do
-    echo "Container: $(docker inspect --format '{{.Name}}' "$container" | sed 's/^\///')"
-    echo "  Image: $(docker inspect --format '{{.Config.Image}}' "$container")"
-    echo "  User: $(docker inspect --format '{{.Config.User}}' "$container")"
-    echo "  Privileged: $(docker inspect --format '{{.HostConfig.Privileged}}' "$container")"
-    echo "  Read-only Root FS: $(docker inspect --format '{{.HostConfig.ReadonlyRootfs}}' "$container")"
-    echo "  Security Opts: $(docker inspect --format '{{.HostConfig.SecurityOpt}}' "$container")"
-    echo "  Cap Add: $(docker inspect --format '{{.HostConfig.CapAdd}}' "$container")"
-    echo "  Cap Drop: $(docker inspect --format '{{.HostConfig.CapDrop}}' "$container")"
+done
+
+# Generate summary report
+echo "Generating summary report..."
+summary_file="$BASELINE_DIR/summary.txt"
+
+{
+  echo "Docker Security Baseline Summary"
+  echo "================================"
+  echo "Generated on: $(date)"
+  echo
+  echo "Container Summary:"
+  echo "-----------------"
+  for container in $containers; do
+    echo "Container: $container"
+    echo "  - User: $(cat "$BASELINE_DIR/$container/user-info.txt" 2>/dev/null || echo "N/A")"
+    echo "  - Exposed Ports: $(cat "$BASELINE_DIR/$container/exposed-ports.txt" 2>/dev/null || echo "None")"
+    echo "  - Process Count: $(wc -l < "$BASELINE_DIR/$container/processes.txt" 2>/dev/null || echo "N/A")"
+    echo "  - Network Connections: $(grep -c "LISTEN" "$BASELINE_DIR/$container/network-connections.txt" 2>/dev/null || echo "N/A") listening"
     echo
   done
-} > "$BASELINE_DIR/container-security.txt"
+} > "$summary_file"
 
+echo -e "${GREEN}=== Security Baseline Generation Complete ===${NC}"
+echo "Summary report saved to $summary_file"
 echo
-echo "=== Security Baseline Generation Complete ==="
-echo "Baseline files have been saved to $BASELINE_DIR"
-echo "Use these files as a reference for security auditing and compliance checks."
+echo "Review these baselines to understand your containers' security posture."
+echo "Use them as a reference point when making security changes."
 echo
+
+exit 0

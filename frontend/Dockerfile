@@ -7,7 +7,8 @@ WORKDIR /app
 # Set environment variables
 ENV NODE_ENV=production \
     NPM_CONFIG_LOGLEVEL=warn \
-    NPM_CONFIG_FUND=false
+    NPM_CONFIG_FUND=false \
+    NPM_CONFIG_AUDIT=false
 
 # Copy package files and install dependencies
 COPY package*.json ./
@@ -28,6 +29,17 @@ WORKDIR /app
 # Set environment variables
 ENV NODE_ENV=production
 
+# Install security updates and clean up
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    # Set proper permissions
+    chmod 1777 /tmp
+
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
@@ -38,7 +50,8 @@ RUN npm install -g serve
 COPY --from=build --chown=appuser:appuser /app/build ./build
 
 # Set proper permissions
-RUN chown -R appuser:appuser /app
+RUN chown -R appuser:appuser /app && \
+    chmod -R 550 /app/build
 
 # Switch to non-root user
 USER appuser
@@ -51,7 +64,7 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3000/ || exit 1
 
 # Start the application
-CMD ["serve", "-s", "build", "-l", "3000"]
+CMD ["serve", "-s", "build", "-l", "3000", "--no-clipboard", "--single"]
 
 # Development stage for hot reloading during development
 FROM node:20-slim AS development
@@ -61,6 +74,17 @@ WORKDIR /app
 
 # Set environment variables
 ENV NODE_ENV=development
+
+# Install security updates and clean up
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    # Set proper permissions
+    chmod 1777 /tmp
 
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
@@ -79,6 +103,10 @@ USER appuser
 
 # Expose port
 EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/ || exit 1
 
 # Start the application in development mode
 CMD ["npm", "start"] 
