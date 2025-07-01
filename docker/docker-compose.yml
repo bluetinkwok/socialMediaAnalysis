@@ -1,299 +1,136 @@
 version: '3.8'
 
+# Define networks for isolation
+networks:
+  frontend-network:
+    driver: bridge
+  backend-network:
+    driver: bridge
+  db-network:
+    driver: bridge
+
+# Define volumes
+volumes:
+  postgres_data:
+  redis_data:
+  uploads:
+  downloads:
+
 services:
-  # FastAPI Backend Service
+  # Frontend service
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: social-media-frontend
+    restart: unless-stopped
+    networks:
+      - frontend-network
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run
+      - /var/cache/nginx
+
+  # Backend service
   backend:
     build:
       context: ../backend
       dockerfile: Dockerfile
-      target: development  # Use development stage for hot reload
     container_name: social-media-backend
+    restart: unless-stopped
+    networks:
+      - frontend-network
+      - backend-network
     ports:
       - "8000:8000"
-    environment:
-      - DATABASE_URL=sqlite:///./data/app.db
-      - ENVIRONMENT=development
-      - REDIS_URL=redis://redis:6379
-      - CLAMAV_HOST=clamav
-      - CLAMAV_PORT=3310
-      - PYTHONPATH=/app
-    volumes:
-      - ../backend:/app
-      - backend_data:/app/data
-      - downloads_data:/app/downloads
-      - logs_data:/app/logs
     depends_on:
+      - postgres
       - redis
-      - clamav
-    networks:
-      - backend-network
-      - redis-network
-    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/social_media
+      - REDIS_URL=redis://redis:6379/0
+      - DEBUG=0
+    volumes:
+      - uploads:/app/uploads:rw
+      - downloads:/app/downloads:rw
     healthcheck:
       test: ["CMD", "/app/healthcheck.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
-    # Security enhancements
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - NET_BIND_SERVICE
-    read_only: false  # Can't be true in dev mode due to hot reload
-    tmpfs:
-      - /tmp
-    # Resource limits
+      start_period: 40s
     deploy:
       resources:
         limits:
-          cpus: '1'
+          cpus: '1.0'
           memory: 1G
-        reservations:
-          cpus: '0.25'
-          memory: 256M
-    # File descriptor and process limits
-    ulimits:
-      nofile:
-        soft: 1024
-        hard: 2048
-      nproc:
-        soft: 100
-        hard: 200
+    security_opt:
+      - no-new-privileges:true
 
-  # React Frontend Service
-  frontend:
-    build:
-      context: ../frontend
-      dockerfile: Dockerfile
-      target: development  # Use development stage for hot reload
-    container_name: social-media-frontend
-    ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_API_URL=http://localhost:8000
-      - REACT_APP_API_BASE_URL=http://backend:8000
-      - NODE_ENV=development
-      - CHOKIDAR_USEPOLLING=true  # For file watching in Docker
-    volumes:
-      - ../frontend:/app
-      - /app/node_modules  # Anonymous volume for node_modules
-    depends_on:
-      - backend
-    networks:
-      - frontend-network
-      - backend-network
+  # PostgreSQL database
+  postgres:
+    image: postgres:15-alpine
+    container_name: social-media-postgres
     restart: unless-stopped
+    networks:
+      - db-network
+      - backend-network
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=social_media
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    # Security enhancements
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - NET_BIND_SERVICE
-    read_only: false  # Can't be true in dev mode due to hot reload
-    tmpfs:
-      - /tmp
-    # Resource limits
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: '0.75'
           memory: 1G
-        reservations:
-          cpus: '0.1'
-          memory: 256M
-    # File descriptor and process limits
-    ulimits:
-      nofile:
-        soft: 1024
-        hard: 2048
-      nproc:
-        soft: 100
-        hard: 200
+    security_opt:
+      - no-new-privileges:true
 
-  # Redis for caching, session management, and task queues
+  # Redis cache
   redis:
     image: redis:7-alpine
     container_name: social-media-redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-defaultpassword}
-    environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-defaultpassword}
-    volumes:
-      - redis_data:/data
-    networks:
-      - redis-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    # Security enhancements
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    read_only: false  # Redis needs to write to disk
-    # Resource limits
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.1'
-          memory: 128M
-    # File descriptor and process limits
-    ulimits:
-      nofile:
-        soft: 1024
-        hard: 2048
-      nproc:
-        soft: 100
-        hard: 200
-
-  # ClamAV for malware scanning of downloaded content
-  clamav:
-    image: clamav/clamav:stable
-    container_name: social-media-clamav
-    environment:
-      - CLAMAV_NO_FRESHCLAMD=false
-      - CLAMAV_NO_CLAMD=false
-    volumes:
-      - clamav_data:/var/lib/clamav
-      - downloads_data:/scan:ro  # Read-only access to downloads for scanning
     networks:
       - backend-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "/usr/local/bin/clamdcheck.sh"]
-      interval: 60s
-      timeout: 30s
-      retries: 3
-      start_period: 120s  # ClamAV takes time to start
-    # Security enhancements
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    # Resource limits
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 1G
-        reservations:
-          cpus: '0.1'
-          memory: 256M
-    # File descriptor and process limits
-    ulimits:
-      nofile:
-        soft: 1024
-        hard: 2048
-      nproc:
-        soft: 100
-        hard: 200
-
-  # Nginx reverse proxy (optional, for production-like setup)
-  nginx:
-    image: nginx:alpine
-    container_name: social-media-nginx
-    ports:
-      - "80:80"
-      - "443:443"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-      - logs_data:/var/log/nginx
-    depends_on:
-      - frontend
-      - backend
-    networks:
-      - frontend-network
-    restart: unless-stopped
-    profiles:
-      - production  # Only start with --profile production
-    # Security enhancements
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - NET_BIND_SERVICE
-    read_only: true
-    tmpfs:
-      - /var/run
-      - /tmp
-    # Resource limits
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: '0.25'
           memory: 256M
-        reservations:
-          cpus: '0.1'
-          memory: 128M
-    # File descriptor and process limits
-    ulimits:
-      nofile:
-        soft: 1024
-        hard: 2048
-      nproc:
-        soft: 100
-        hard: 200
-
-# Named volumes for data persistence
-volumes:
-  redis_data:
-    driver: local
-  clamav_data:
-    driver: local
-  backend_data:
-    driver: local
-  downloads_data:
-    driver: local
-  logs_data:
-    driver: local
-
-# Custom networks for service isolation
-networks:
-  frontend-network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/24
-    # Network security enhancements
-    driver_opts:
-      com.docker.network.bridge.name: frontend-net
-      com.docker.network.bridge.enable_ip_masquerade: "true"
-      com.docker.network.bridge.enable_icc: "true"
-  backend-network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.1.0/24
-    # Network security enhancements
-    driver_opts:
-      com.docker.network.bridge.name: backend-net
-      com.docker.network.bridge.enable_ip_masquerade: "true"
-      com.docker.network.bridge.enable_icc: "true"
-  redis-network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.2.0/24
-    # Network security enhancements
-    driver_opts:
-      com.docker.network.bridge.name: redis-net
-      com.docker.network.bridge.enable_ip_masquerade: "true"
-      com.docker.network.bridge.enable_icc: "true"
+    security_opt:
+      - no-new-privileges:true
+    command: ["redis-server", "--appendonly", "yes"]

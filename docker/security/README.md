@@ -1,57 +1,51 @@
-# Docker Security Hardening
+# Docker Security Measures
 
-This directory contains security configurations and profiles for hardening Docker containers in the Social Media Analysis platform.
+This directory contains security-related files and scripts for hardening Docker containers in the Social Media Analysis Platform.
 
-## Security Measures Implemented
+## Security Files
 
-### 1. Container Security
-
-- **Multi-stage builds**: Separate build and runtime environments to reduce attack surface
-- **Non-root users**: Containers run as non-privileged users
-- **Read-only file systems**: Production containers use read-only file systems
-- **Minimal base images**: Using slim variants of official images
-- **Dropped capabilities**: Only essential Linux capabilities are enabled
-- **Resource limits**: CPU and memory limits prevent resource exhaustion attacks
-
-### 2. Network Security
-
-- **Network isolation**: Services are isolated in separate networks
-- **Exposed ports**: Only necessary ports are exposed
-- **Internal communication**: Services communicate through internal Docker networks
-
-### 3. Advanced Security Controls
-
-- **Seccomp profiles**: System call filtering (seccomp-profile.json)
-- **AppArmor profiles**: Mandatory access control (apparmor-profile)
-- **Security scanning**: Integration with vulnerability scanning
-- **Secrets management**: Sensitive data stored as Docker secrets
+- **apparmor-profile**: AppArmor profile that restricts container processes to only necessary operations
+- **seccomp-profile.json**: Custom seccomp profile to restrict system calls for containers
+- **docker-security-check.sh**: Script to verify Docker security best practices in your environment
+- **generate-baseline.sh**: Generates security baselines for running containers
+- **load-apparmor.sh**: Helper script to load the AppArmor profile
+- **scan-vulnerabilities.sh**: Script to scan Docker images for vulnerabilities using Trivy
 
 ## Usage
 
-### Loading AppArmor Profile
+1. **Load AppArmor Profile**:
+   ```
+   sudo ./load-apparmor.sh
+   ```
 
-```bash
-# Make the script executable
-chmod +x security/load-apparmor.sh
+2. **Scan for Vulnerabilities**:
+   ```
+   ./scan-vulnerabilities.sh [image_name]
+   ```
 
-# Load the profile
-./security/load-apparmor.sh
-```
+3. **Check Security Best Practices**:
+   ```
+   ./docker-security-check.sh
+   ```
 
-### Using Seccomp Profile
-
-The seccomp profile is automatically applied to containers via the `security_opt` setting in docker-compose.prod.yml.
+4. **Generate Security Baseline**:
+   ```
+   ./generate-baseline.sh
+   ```
 
 ## Security Best Practices
 
-1. **Regular updates**: Keep base images and dependencies updated
-2. **Vulnerability scanning**: Regularly scan images for vulnerabilities
-3. **Minimal permissions**: Follow principle of least privilege
-4. **Secrets rotation**: Regularly rotate secrets and credentials
-5. **Logging and monitoring**: Monitor container behavior for anomalies
+- Run containers as non-root users
+- Use read-only file systems where possible
+- Implement resource limits (CPU, memory)
+- Use network isolation between services
+- Apply seccomp and AppArmor profiles
+- Regularly scan for vulnerabilities
+- Use Docker secrets for sensitive information
+- Implement container health checks
 
-## References
+## Additional Resources
 
 - [Docker Security Documentation](https://docs.docker.com/engine/security/)
-- [OWASP Docker Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html)
-- [CIS Docker Benchmark](https://www.cisecurity.org/benchmark/docker) 
+- [CIS Docker Benchmark](https://www.cisecurity.org/benchmark/docker)
+- [OWASP Docker Security](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html) 

@@ -1,18 +1,13 @@
-# Build stage
-FROM node:20-slim AS build
+# Multi-stage build for frontend
+# Stage 1: Build the React application
+FROM node:18-alpine AS build
 
 # Set working directory
 WORKDIR /app
 
-# Set environment variables
-ENV NODE_ENV=production \
-    NPM_CONFIG_LOGLEVEL=warn \
-    NPM_CONFIG_FUND=false \
-    NPM_CONFIG_AUDIT=false
-
-# Copy package files and install dependencies
-COPY package*.json ./
-RUN npm ci --only=production
+# Install dependencies
+COPY package.json package-lock.json ./
+RUN npm ci
 
 # Copy source code
 COPY . .
@@ -20,93 +15,36 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Production stage
-FROM node:20-slim AS production
-
-# Set working directory
-WORKDIR /app
-
-# Set environment variables
-ENV NODE_ENV=production
-
-# Install security updates and clean up
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    && apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    # Set proper permissions
-    chmod 1777 /tmp
+# Stage 2: Serve the application with Nginx
+FROM nginx:alpine
 
 # Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Install serve for production
-RUN npm install -g serve
+# Copy built files from build stage
+COPY --from=build /app/dist /usr/share/nginx/html
 
-# Copy built app from build stage
-COPY --from=build --chown=appuser:appuser /app/build ./build
+# Copy custom nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Set proper permissions
-RUN chown -R appuser:appuser /app && \
-    chmod -R 550 /app/build
+# Copy and set permissions for healthcheck script
+COPY healthcheck.sh /healthcheck.sh
+RUN chmod +x /healthcheck.sh
 
-# Switch to non-root user
-USER appuser
+# Create necessary directories with proper permissions
+RUN mkdir -p /var/cache/nginx /var/run \
+    && chown -R appuser:appgroup /var/cache/nginx /var/run
 
-# Expose port
-EXPOSE 3000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/ || exit 1
-
-# Start the application
-CMD ["serve", "-s", "build", "-l", "3000", "--no-clipboard", "--single"]
-
-# Development stage for hot reloading during development
-FROM node:20-slim AS development
-
-# Set working directory
-WORKDIR /app
-
-# Set environment variables
-ENV NODE_ENV=development
-
-# Install security updates and clean up
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    && apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    # Set proper permissions
-    chmod 1777 /tmp
-
-# Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
-RUN npm install
-
-# Set proper permissions
-RUN chown -R appuser:appuser /app
-
-# Switch to non-root user
-USER appuser
+# Set healthcheck
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD /healthcheck.sh
 
 # Expose port
-EXPOSE 3000
+EXPOSE 80
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/ || exit 1
+# Switch to non-root user for running Nginx
+# Note: We need to use root to start Nginx but it will drop privileges
+USER appuser
 
-# Start the application in development mode
-CMD ["npm", "start"] 
+# Start Nginx
+CMD ["nginx", "-g", "daemon off;"] 
