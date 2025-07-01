@@ -9,7 +9,7 @@ import re
 import json
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from urllib.parse import urlparse, parse_qs
 
 import yt_dlp
@@ -19,6 +19,7 @@ from yt_dlp import YoutubeDL
 from .base_extractor import BaseContentExtractor
 from db.models import PlatformType, ContentType
 from .rate_limiter import RateLimiter
+from .progress_tracker import ProgressTracker, ProgressStep
 
 
 class YouTubeDownloader(BaseContentExtractor):
@@ -27,15 +28,15 @@ class YouTubeDownloader(BaseContentExtractor):
     Supports both regular YouTube videos and YouTube Shorts.
     """
     
-    def __init__(self):
-        super().__init__(platform=PlatformType.YOUTUBE)
+    def __init__(self, progress_tracker: Optional[ProgressTracker] = None):
+        super().__init__(platform=PlatformType.YOUTUBE, progress_tracker=progress_tracker)
         self.rate_limiter = RateLimiter(delay=1.0, burst_limit=3)  # Conservative rate limiting
         self.logger = logging.getLogger(__name__)
         
         # Base download directory
         self.download_base = Path("downloads/youtube")
         
-        # yt-dlp configuration
+        # Default yt-dlp configuration
         self.ydl_opts = {
             'quiet': True,
             'no_warnings': True,
@@ -44,7 +45,7 @@ class YouTubeDownloader(BaseContentExtractor):
             'writesubtitles': True,
             'writeautomaticsub': True,
             'subtitleslangs': ['en', 'en-US'],
-            'format': 'best[height<=720]',  # Limit to 720p for reasonable file sizes
+            'format': 'best[height<=720]',  # Default to 720p for reasonable file sizes
             'outtmpl': '%(id)s.%(ext)s',
         }
     
@@ -84,19 +85,39 @@ class YouTubeDownloader(BaseContentExtractor):
         Returns:
             Dictionary containing extracted content and metadata
         """
+        # Start progress tracking if available
+        if self.progress_tracker:
+            await self._start_progress()
+            await self._update_progress(ProgressStep.INITIALIZING, "Initializing YouTube extractor")
+        
         if not self.validate_url(url):
-            raise ValueError(f"Invalid YouTube URL: {url}")
+            error_msg = f"Invalid YouTube URL: {url}"
+            if self.progress_tracker:
+                await self._report_error(error_msg)
+            raise ValueError(error_msg)
+        
+        # Update progress to URL validation step
+        if self.progress_tracker:
+            await self._update_progress(ProgressStep.VALIDATING_URL, f"Validating URL: {url}")
         
         # Apply rate limiting
         await self.rate_limiter.wait()
         
         try:
+            # Update progress to fetching content
+            if self.progress_tracker:
+                await self._update_progress(ProgressStep.FETCHING_CONTENT, "Fetching video information")
+            
             # Extract video information using yt-dlp
             with YoutubeDL(self.ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 
                 # Extract video ID
                 video_id = info.get('id', self._extract_video_id_from_url(url))
+                
+                # Update progress to parsing content
+                if self.progress_tracker:
+                    await self._update_progress(ProgressStep.PARSING_CONTENT, f"Processing metadata for video {video_id}")
                 
                 # Process metadata
                 content_data = {
@@ -127,13 +148,25 @@ class YouTubeDownloader(BaseContentExtractor):
                     'author': info.get('uploader', 'Unknown Channel'),
                     'author_id': info.get('uploader_id', 'Unknown'),
                     'publish_date': self._format_upload_date(info.get('upload_date')),
-                    'media_urls': self._extract_media_urls(info)
+                    'media_urls': self._extract_media_urls(info),
+                    'available_formats': self._get_available_formats(info)
                 }
+                
+                # Update progress to finalizing
+                if self.progress_tracker:
+                    await self._update_progress(ProgressStep.FINALIZING, "Extraction complete")
+                    await self.progress_tracker.complete(True, f"Successfully extracted metadata for {content_data['title']}")
                 
                 return content_data
                 
         except Exception as e:
-            self.logger.error(f"Error extracting YouTube content from {url}: {e}")
+            error_msg = f"Error extracting YouTube content from {url}: {e}"
+            self.logger.error(error_msg)
+            
+            if self.progress_tracker:
+                await self._report_error(error_msg)
+                await self.progress_tracker.complete(False, "Failed to extract content")
+            
             # Return minimal data structure for error case
             return {
                 'url': url,
@@ -151,18 +184,32 @@ class YouTubeDownloader(BaseContentExtractor):
                 'media_urls': []
             }
     
-    async def download_content(self, url: str) -> Dict[str, Any]:
+    async def download_content(self, url: str, quality: str = 'medium', format_id: str = None) -> Dict[str, Any]:
         """
         Download video, thumbnail, and subtitles from YouTube URL.
         
         Args:
             url: YouTube video URL
+            quality: Quality level ('low', 'medium', 'high', 'best')
+            format_id: Specific format ID to download (overrides quality)
             
         Returns:
             Dictionary containing download results
         """
+        # Start progress tracking if available
+        if self.progress_tracker:
+            await self._start_progress()
+            await self._update_progress(ProgressStep.INITIALIZING, "Initializing YouTube downloader")
+        
         if not self.validate_url(url):
-            raise ValueError(f"Invalid YouTube URL: {url}")
+            error_msg = f"Invalid YouTube URL: {url}"
+            if self.progress_tracker:
+                await self._report_error(error_msg)
+            raise ValueError(error_msg)
+        
+        # Update progress to URL validation step
+        if self.progress_tracker:
+            await self._update_progress(ProgressStep.VALIDATING_URL, f"Validating URL: {url}")
         
         # Apply rate limiting
         await self.rate_limiter.wait()
@@ -181,13 +228,24 @@ class YouTubeDownloader(BaseContentExtractor):
         }
         
         try:
+            # Update progress to fetching content
+            if self.progress_tracker:
+                await self._update_progress(ProgressStep.FETCHING_CONTENT, f"Fetching video information for {video_id}")
+            
             # Setup download directories
             video_dir = self._get_download_directory(video_id, "video")
             image_dir = self._get_download_directory(video_id, "image")
             text_dir = self._get_download_directory(video_id, "text")
             
-            # Configure yt-dlp for downloading
+            # Configure yt-dlp for downloading with selected quality
             download_opts = self.ydl_opts.copy()
+            
+            # Set format based on quality or format_id
+            if format_id:
+                download_opts['format'] = format_id
+            else:
+                download_opts['format'] = self._get_format_for_quality(quality)
+                
             download_opts.update({
                 'outtmpl': {
                     'default': str(video_dir / f'{video_id}.%(ext)s'),
@@ -196,9 +254,21 @@ class YouTubeDownloader(BaseContentExtractor):
                 }
             })
             
+            # Add progress hook if progress tracking is enabled
+            if self.progress_tracker:
+                download_opts['progress_hooks'] = [self._progress_hook]
+            
+            # Update progress to downloading files
+            if self.progress_tracker:
+                await self._update_progress(ProgressStep.DOWNLOADING_FILES, f"Downloading video {video_id}")
+            
             # Download content
             with YoutubeDL(download_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
+                
+                # Update progress to storing data
+                if self.progress_tracker:
+                    await self._update_progress(ProgressStep.STORING_DATA, "Processing downloaded files")
                 
                 # Record successful downloads
                 if info:
@@ -246,13 +316,139 @@ class YouTubeDownloader(BaseContentExtractor):
                         'file_size': metadata_file.stat().st_size,
                         'success': True
                     }
+                    
+                    # Update progress to finalizing
+                    if self.progress_tracker:
+                        await self._update_progress(ProgressStep.FINALIZING, "Download complete")
+                        await self.progress_tracker.complete(True, f"Successfully downloaded video {info.get('title', video_id)}")
                 
         except Exception as e:
             error_msg = f"Error downloading YouTube content: {e}"
             self.logger.error(error_msg)
             download_results['errors'].append(error_msg)
+            
+            if self.progress_tracker:
+                await self._report_error(error_msg)
+                await self.progress_tracker.complete(False, "Download failed")
         
         return download_results
+    
+    def _progress_hook(self, d: Dict[str, Any]) -> None:
+        """
+        Progress hook for yt-dlp to track download progress
+        
+        Args:
+            d: Progress information from yt-dlp
+        """
+        if not self.progress_tracker:
+            return
+            
+        status = d.get('status')
+        
+        if status == 'downloading':
+            # Calculate download progress
+            total_bytes = d.get('total_bytes')
+            downloaded_bytes = d.get('downloaded_bytes', 0)
+            
+            if total_bytes:
+                progress = (downloaded_bytes / total_bytes) * 100
+                asyncio.create_task(
+                    self._update_progress(
+                        ProgressStep.DOWNLOADING_FILES,
+                        f"Downloading: {d.get('filename', 'video')} - {progress:.1f}%",
+                        progress / 100
+                    )
+                )
+            elif d.get('total_bytes_estimate'):
+                # Use estimated total if exact total not available
+                total_bytes_estimate = d.get('total_bytes_estimate')
+                progress = (downloaded_bytes / total_bytes_estimate) * 100
+                asyncio.create_task(
+                    self._update_progress(
+                        ProgressStep.DOWNLOADING_FILES,
+                        f"Downloading: {d.get('filename', 'video')} - {progress:.1f}% (estimated)",
+                        progress / 100
+                    )
+                )
+            else:
+                # If no size info available, just show downloaded bytes
+                asyncio.create_task(
+                    self._update_progress(
+                        ProgressStep.DOWNLOADING_FILES,
+                        f"Downloading: {d.get('filename', 'video')} - {downloaded_bytes/1024/1024:.1f} MB",
+                        0.5  # Use 50% as placeholder
+                    )
+                )
+                
+        elif status == 'finished':
+            filename = d.get('filename', '')
+            asyncio.create_task(
+                self._update_progress(
+                    ProgressStep.STORING_DATA,
+                    f"Download finished: {filename}",
+                    0.9  # 90% complete
+                )
+            )
+            
+        elif status == 'error':
+            error_msg = f"Download error: {d.get('error', 'Unknown error')}"
+            asyncio.create_task(self._report_error(error_msg))
+    
+    def _get_format_for_quality(self, quality: str) -> str:
+        """
+        Get yt-dlp format string for the requested quality
+        
+        Args:
+            quality: Quality level ('low', 'medium', 'high', 'best')
+            
+        Returns:
+            Format string for yt-dlp
+        """
+        quality_mapping = {
+            'low': 'worst[height>=240]',
+            'medium': 'best[height<=480]',
+            'high': 'best[height<=720]',
+            'best': 'best'
+        }
+        
+        return quality_mapping.get(quality.lower(), 'best[height<=720]')
+    
+    def _get_available_formats(self, info: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Extract available formats from video info
+        
+        Args:
+            info: Video info from yt-dlp
+            
+        Returns:
+            List of available formats with details
+        """
+        formats = info.get('formats', [])
+        if not formats:
+            return []
+            
+        available_formats = []
+        
+        for fmt in formats:
+            # Skip formats without video
+            if fmt.get('vcodec') == 'none':
+                continue
+                
+            format_info = {
+                'format_id': fmt.get('format_id'),
+                'ext': fmt.get('ext'),
+                'resolution': f"{fmt.get('width', 0)}x{fmt.get('height', 0)}",
+                'filesize': fmt.get('filesize'),
+                'filesize_approx': fmt.get('filesize_approx'),
+                'fps': fmt.get('fps'),
+                'vcodec': fmt.get('vcodec'),
+                'acodec': fmt.get('acodec'),
+                'format_note': fmt.get('format_note', '')
+            }
+            
+            available_formats.append(format_info)
+            
+        return available_formats
     
     def get_platform_domains(self) -> List[str]:
         """
@@ -316,19 +512,52 @@ class YouTubeDownloader(BaseContentExtractor):
         Returns:
             List of extracted content data
         """
+        # Start progress tracking if available
+        if self.progress_tracker:
+            await self._start_progress(len(urls))
+            await self._update_progress(ProgressStep.INITIALIZING, f"Initializing batch extraction for {len(urls)} URLs")
+        
         results = []
         
-        for url in urls:
+        for i, url in enumerate(urls):
             try:
+                if self.progress_tracker:
+                    await self._update_progress(
+                        ProgressStep.FETCHING_CONTENT, 
+                        f"Processing URL {i+1}/{len(urls)}: {url}",
+                        i / len(urls)
+                    )
+                
                 content_data = await self.extract_content(url)
                 results.append(content_data)
+                
+                # Update progress for this item
+                if self.progress_tracker:
+                    await self.progress_tracker.update_item_progress(
+                        i + 1, 
+                        f"Completed {i+1}/{len(urls)} URLs"
+                    )
+                
             except Exception as e:
-                self.logger.error(f"Error extracting content from {url}: {e}")
+                error_msg = f"Error extracting content from {url}: {e}"
+                self.logger.error(error_msg)
+                
+                if self.progress_tracker:
+                    await self._report_error(error_msg, warning=True)
+                    
                 results.append({
                     'url': url,
                     'error': str(e),
                     'status': 'failed'
                 })
+        
+        # Complete progress tracking
+        if self.progress_tracker:
+            success_count = sum(1 for r in results if 'error' not in r)
+            await self.progress_tracker.complete(
+                success_count > 0,
+                f"Completed batch extraction: {success_count}/{len(urls)} successful"
+            )
         
         return results
     

@@ -6,8 +6,39 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import apiService from '../services/api';
 import type { DownloadJob, DownloadRequest, Platform } from '../types';
+import { Tabs, Tab, Box } from '@mui/material';
+import YouTubeDownloader from '../components/YouTubeDownloader';
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`download-tabpanel-${index}`}
+      aria-labelledby={`download-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ py: 3 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
 
 const DownloadCenter: React.FC = () => {
+  // Tab state
+  const [tabValue, setTabValue] = useState(0);
+
   // State for single URL input
   const [url, setUrl] = useState<string>('');
   const [platform, setPlatform] = useState<Platform | ''>('');
@@ -31,6 +62,10 @@ const DownloadCenter: React.FC = () => {
 
   // File input reference
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
 
   // Fetch download jobs on component mount
   useEffect(() => {
@@ -227,320 +262,274 @@ const DownloadCenter: React.FC = () => {
         <p className="text-gray-600">Download content from social media platforms</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Single URL Download */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">Single URL Download</h3>
-          </div>
-          <div className="p-6">
-            <form onSubmit={handleSingleSubmit}>
-              <div className="mb-4">
-                <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-1">
-                  URL
-                </label>
-                <input
-                  type="text"
-                  id="url"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="https://www.youtube.com/watch?v=..."
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  disabled={isSubmitting}
-                />
-              </div>
-
-              <div className="mb-4">
-                <label htmlFor="platform" className="block text-sm font-medium text-gray-700 mb-1">
-                  Platform (Optional - Auto-detected if not specified)
-                </label>
-                <select
-                  id="platform"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={platform}
-                  onChange={(e) => setPlatform(e.target.value as Platform | '')}
-                  disabled={isSubmitting}
-                >
-                  <option value="">Auto-detect</option>
-                  <option value="youtube">YouTube</option>
-                  <option value="instagram">Instagram</option>
-                  <option value="threads">Threads</option>
-                  <option value="rednote">RedNote</option>
-                </select>
-              </div>
-
-              <div className="mb-4">
-                <div className="flex items-center">
+      <Box sx={{ width: '100%' }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs value={tabValue} onChange={handleTabChange} aria-label="download options tabs">
+            <Tab label="YouTube Downloader" id="download-tab-0" aria-controls="download-tabpanel-0" />
+            <Tab label="General Downloader" id="download-tab-1" aria-controls="download-tabpanel-1" />
+            <Tab label="Batch Download" id="download-tab-2" aria-controls="download-tabpanel-2" />
+          </Tabs>
+        </Box>
+        
+        <TabPanel value={tabValue} index={0}>
+          <YouTubeDownloader />
+        </TabPanel>
+        
+        <TabPanel value={tabValue} index={1}>
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Single URL Download</h3>
+            </div>
+            <div className="p-6">
+              <form onSubmit={handleSingleSubmit}>
+                <div className="mb-4">
+                  <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-1">
+                    URL
+                  </label>
                   <input
-                    type="checkbox"
-                    id="includeFiles"
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    checked={includeFiles}
-                    onChange={(e) => setIncludeFiles(e.target.checked)}
+                    type="text"
+                    id="url"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
                     disabled={isSubmitting}
                   />
-                  <label htmlFor="includeFiles" className="ml-2 block text-sm text-gray-700">
-                    Download media files (videos, images)
+                </div>
+
+                <div className="mb-4">
+                  <label htmlFor="platform" className="block text-sm font-medium text-gray-700 mb-1">
+                    Platform
                   </label>
+                  <select
+                    id="platform"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={platform}
+                    onChange={(e) => setPlatform(e.target.value as Platform | '')}
+                    disabled={isSubmitting}
+                  >
+                    <option value="">Select Platform</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="twitter">Twitter</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="facebook">Facebook</option>
+                  </select>
                 </div>
-              </div>
 
-              {submitError && (
-                <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md">
-                  {submitError}
+                <div className="mb-4">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="includeFiles"
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      checked={includeFiles}
+                      onChange={(e) => setIncludeFiles(e.target.checked)}
+                      disabled={isSubmitting}
+                    />
+                    <label htmlFor="includeFiles" className="ml-2 block text-sm text-gray-700">
+                      Include comments and metadata
+                    </label>
+                  </div>
                 </div>
-              )}
 
-              {submitSuccess && (
-                <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-md">
-                  {submitSuccess}
-                </div>
-              )}
+                {submitError && (
+                  <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md">
+                    {submitError}
+                  </div>
+                )}
 
-              <button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Submitting...' : 'Download'}
-              </button>
-            </form>
+                {submitSuccess && (
+                  <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-md">
+                    {submitSuccess}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Submitting...' : 'Download'}
+                </button>
+              </form>
+            </div>
           </div>
-        </div>
+        </TabPanel>
+        
+        <TabPanel value={tabValue} index={2}>
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Batch URL Download</h3>
+            </div>
+            <div className="p-6">
+              <form onSubmit={handleBatchSubmit}>
+                <div className="mb-4">
+                  <label htmlFor="batchFile" className="block text-sm font-medium text-gray-700 mb-1">
+                    Upload File with URLs (one URL per line)
+                  </label>
+                  <input
+                    type="file"
+                    id="batchFile"
+                    ref={fileInputRef}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    accept=".txt,.csv"
+                    onChange={handleFileChange}
+                    disabled={isBatchSubmitting}
+                  />
+                  <p className="mt-1 text-sm text-gray-500">
+                    Upload a text file with one URL per line
+                  </p>
+                </div>
 
-        {/* Batch URL Download */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">Batch URL Download</h3>
-          </div>
-          <div className="p-6">
-            <form onSubmit={handleBatchSubmit}>
-              <div className="mb-4">
-                <label htmlFor="batchFile" className="block text-sm font-medium text-gray-700 mb-1">
-                  Upload File (CSV or TXT with one URL per line)
-                </label>
-                <input
-                  type="file"
-                  id="batchFile"
-                  ref={fileInputRef}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  accept=".csv,.txt"
-                  onChange={handleFileChange}
-                  disabled={isBatchSubmitting}
-                />
-                <p className="mt-1 text-sm text-gray-500">
-                  Max file size: 1MB. Format: One URL per line.
-                </p>
-              </div>
+                <div className="mb-4">
+                  <label htmlFor="batchPlatform" className="block text-sm font-medium text-gray-700 mb-1">
+                    Platform
+                  </label>
+                  <select
+                    id="batchPlatform"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={batchPlatform}
+                    onChange={(e) => setBatchPlatform(e.target.value as Platform | '')}
+                    disabled={isBatchSubmitting}
+                  >
+                    <option value="">Select Platform</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="twitter">Twitter</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="facebook">Facebook</option>
+                  </select>
+                </div>
 
-              <div className="mb-4">
-                <label htmlFor="batchPlatform" className="block text-sm font-medium text-gray-700 mb-1">
-                  Platform (Optional - Auto-detected if not specified)
-                </label>
-                <select
-                  id="batchPlatform"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={batchPlatform}
-                  onChange={(e) => setBatchPlatform(e.target.value as Platform | '')}
+                {batchError && (
+                  <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md">
+                    {batchError}
+                  </div>
+                )}
+
+                {batchSuccess && (
+                  <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-md">
+                    {batchSuccess}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   disabled={isBatchSubmitting}
                 >
-                  <option value="">Auto-detect</option>
-                  <option value="youtube">YouTube</option>
-                  <option value="instagram">Instagram</option>
-                  <option value="threads">Threads</option>
-                  <option value="rednote">RedNote</option>
-                </select>
-              </div>
-
-              {batchError && (
-                <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md">
-                  {batchError}
-                </div>
-              )}
-
-              {batchSuccess && (
-                <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-md">
-                  {batchSuccess}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-                disabled={isBatchSubmitting || !batchFile}
-              >
-                {isBatchSubmitting ? 'Submitting...' : 'Upload & Download'}
-              </button>
-            </form>
+                  {isBatchSubmitting ? 'Submitting...' : 'Upload and Download'}
+                </button>
+              </form>
+            </div>
           </div>
-        </div>
-      </div>
+        </TabPanel>
+      </Box>
 
-      {/* Active Download Jobs */}
-      <div className="bg-white rounded-lg shadow mb-8">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Active Download Jobs</h3>
-        </div>
-        <div className="p-6">
-          {isLoading ? (
-            <div className="text-center py-4">
-              <div className="spinner h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-              <p className="text-gray-500">Loading jobs...</p>
-            </div>
-          ) : loadError ? (
-            <div className="p-3 bg-red-50 text-red-700 rounded-md">
-              {loadError}
-            </div>
-          ) : activeJobs.length === 0 ? (
-            <div className="text-gray-500 text-center py-8">
-              No active download jobs
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Job ID
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Progress
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Created
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {activeJobs.map((job) => (
-                    <tr key={job.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Link to={`/downloads/${job.id}`} className="text-blue-600 hover:text-blue-900">
-                          {job.id.substring(0, 8)}...
-                        </Link>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(job.status)}`}>
-                          {job.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
-                          <div 
-                            className="h-2.5 rounded-full bg-blue-600"
-                            style={{ width: `${job.progress}%` }}
-                          ></div>
+      {/* Active and Recent Jobs */}
+      <div className="mt-8">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Download Jobs</h2>
+        
+        {loadError && (
+          <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md">
+            {loadError}
+          </div>
+        )}
+        
+        {isLoading ? (
+          <div className="text-center py-4">Loading...</div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Active Jobs */}
+            <div className="bg-white rounded-lg shadow">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">Active Jobs</h3>
+              </div>
+              <div className="p-6">
+                {activeJobs.length === 0 ? (
+                  <div className="text-center py-4 text-gray-500">No active jobs</div>
+                ) : (
+                  <ul className="divide-y divide-gray-200">
+                    {activeJobs.map((job) => (
+                      <li key={job.id} className="py-4">
+                        <div className="flex justify-between">
+                          <div>
+                            <span className="font-medium">Job ID: {job.id}</span>
+                            <div className="text-sm text-gray-500">
+                              {job.urls && job.urls.length > 0 ? (
+                                <span>URL: {job.urls[0]}{job.urls.length > 1 ? ` (+${job.urls.length - 1} more)` : ''}</span>
+                              ) : (
+                                <span>No URLs</span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              Created: {formatDate(job.created_at)}
+                            </div>
+                          </div>
+                          <div>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(job.status)}`}>
+                              {job.status}
+                            </span>
+                            <div className="text-sm text-gray-500 mt-1">
+                              Progress: {job.progress_percentage ? `${Math.round(job.progress_percentage)}%` : 'N/A'}
+                            </div>
+                          </div>
                         </div>
-                        <span className="text-xs text-gray-500 mt-1">{job.progress}%</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(job.createdAt.toString())}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          className="text-red-600 hover:text-red-900 text-sm font-medium"
-                          onClick={async () => {
-                            try {
-                              await apiService.cancelDownloadJob(job.id);
-                              fetchDownloadJobs();
-                            } catch (error) {
-                              console.error('Error cancelling job:', error);
-                            }
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Recent Download Jobs */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Recent Download Jobs</h3>
-        </div>
-        <div className="p-6">
-          {isLoading ? (
-            <div className="text-center py-4">
-              <div className="spinner h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-              <p className="text-gray-500">Loading jobs...</p>
-            </div>
-          ) : loadError ? (
-            <div className="p-3 bg-red-50 text-red-700 rounded-md">
-              {loadError}
-            </div>
-          ) : recentJobs.length === 0 ? (
-            <div className="text-gray-500 text-center py-8">
-              No recent download jobs
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Job ID
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Items
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Created
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Completed
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {recentJobs.map((job) => (
-                    <tr key={job.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Link to={`/downloads/${job.id}`} className="text-blue-600 hover:text-blue-900">
-                          {job.id.substring(0, 8)}...
-                        </Link>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(job.status)}`}>
-                          {job.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {job.processedItems} / {job.totalItems}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(job.createdAt.toString())}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {job.completedAt ? formatDate(job.completedAt.toString()) : '-'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="mt-4 text-right">
-                <Link to="/downloads" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                  View all downloads →
-                </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
-          )}
-        </div>
+            
+            {/* Recent Jobs */}
+            <div className="bg-white rounded-lg shadow">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">Recent Jobs</h3>
+              </div>
+              <div className="p-6">
+                {recentJobs.length === 0 ? (
+                  <div className="text-center py-4 text-gray-500">No recent jobs</div>
+                ) : (
+                  <ul className="divide-y divide-gray-200">
+                    {recentJobs.map((job) => (
+                      <li key={job.id} className="py-4">
+                        <div className="flex justify-between">
+                          <div>
+                            <span className="font-medium">Job ID: {job.id}</span>
+                            <div className="text-sm text-gray-500">
+                              {job.urls && job.urls.length > 0 ? (
+                                <span>URL: {job.urls[0]}{job.urls.length > 1 ? ` (+${job.urls.length - 1} more)` : ''}</span>
+                              ) : (
+                                <span>No URLs</span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              Completed: {job.completed_at ? formatDate(job.completed_at) : 'N/A'}
+                            </div>
+                          </div>
+                          <div>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(job.status)}`}>
+                              {job.status}
+                            </span>
+                            {job.status === 'completed' && (
+                              <div className="text-sm text-right mt-1">
+                                <Link to={`/content?job=${job.id}`} className="text-blue-600 hover:text-blue-800">
+                                  View Content
+                                </Link>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

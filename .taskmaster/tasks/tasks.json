@@ -666,7 +666,7 @@
         "description": "Integrate yt-dlp library to enable downloading of YouTube videos, thumbnails, metadata, and transcripts, supporting both Shorts and regular videos with quality selection and progress tracking.",
         "details": "1. Install yt-dlp as a Python dependency using pip (`python3 -m pip install -U yt-dlp[default]`).\n2. Create a new service module `services/youtube_downloader.py` to encapsulate all YouTube downloading logic.\n3. Use yt-dlp's Python API to implement functions for:\n   - Downloading video files with selectable quality formats.\n   - Extracting thumbnails.\n   - Fetching metadata such as title, description, view count, likes, and upload date.\n   - Extracting transcripts or captions if available.\n4. Ensure support for both YouTube Shorts and regular videos by handling their URLs appropriately.\n5. Implement download progress tracking by leveraging yt-dlp's progress hooks, storing progress status and any errors in the database.\n6. Integrate error handling for network issues, unavailable content, or format errors.\n7. Expose the downloader functionality through backend API endpoints for single and batch downloads, coordinating with existing download management.\n8. Ensure the module is compatible with Python 3.9+ and follows project coding standards.\n9. Document usage and configuration options for quality selection and progress reporting.\n\nThis integration will provide a reliable, feature-rich YouTube content downloader leveraging yt-dlp's capabilities, filling the gap due to lack of official YouTube download APIs.",
         "testStrategy": "- Write unit tests mocking yt-dlp calls to simulate video, thumbnail, metadata, and transcript downloads.\n- Test with various YouTube URLs including Shorts and regular videos to verify correct handling.\n- Verify quality selection by requesting different video formats and confirming correct files are downloaded.\n- Simulate download progress and error scenarios to ensure progress tracking and error reporting are accurate and stored.\n- Use API endpoints to trigger downloads and confirm that downloaded content and metadata are correctly saved in the database.\n- Perform integration tests with the overall download management system to ensure smooth operation.\n- Monitor logs and database entries during tests to confirm no unexpected failures occur.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           3,
           7,
@@ -1201,7 +1201,7 @@
     ],
     "metadata": {
       "created": "2025-06-22T11:33:57.173Z",
-      "updated": "2025-07-01T03:32:54.674Z",
+      "updated": "2025-07-01T04:06:27.451Z",
       "description": "Tasks for master context"
     }
   }
