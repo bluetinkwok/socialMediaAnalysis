@@ -31,6 +31,8 @@ socialMediaAnalysis/
 ├── docker/               # Docker configuration files
 │   ├── security/         # Docker security profiles and scripts
 │   └── docs/             # Docker-specific documentation
+├── monitoring/           # Monitoring configuration
+│   └── grafana/          # Grafana dashboards
 └── docs/                 # Project documentation
 ```
 
@@ -50,6 +52,8 @@ socialMediaAnalysis/
 - **Selenium** - Web scraping automation
 - **BeautifulSoup** - HTML parsing
 - **pytest** - Testing framework
+- **structlog** - Structured logging
+- **prometheus-client** - Metrics collection
 
 ### Frontend (React TypeScript)
 - **React 18** - UI framework
@@ -62,6 +66,8 @@ socialMediaAnalysis/
 - **Docker Compose** - Container orchestration
 - **SQLite** - Local database
 - **File System** - Media storage
+- **Prometheus** - Metrics collection
+- **Grafana** - Metrics visualization
 
 ## 🔧 Development Setup
 
@@ -104,6 +110,10 @@ cd docker
 
 # Check security compliance
 ./security/docker-security-check.sh
+
+# Generate security baseline
+cd backend
+python scripts/generate_security_baseline.py
 ```
 
 ## 📋 Features
@@ -129,6 +139,13 @@ cd docker
   - [x] Network isolation
   - [x] Seccomp and AppArmor profiles
   - [x] Container health monitoring
+- [x] Security logging and monitoring
+  - [x] Structured security event logging
+  - [x] Real-time security metrics
+  - [x] Intrusion detection system
+  - [x] Comprehensive audit trails
+  - [x] Security dashboards
+  - [x] Security baseline generation
 
 ### Analytics Features
 - [x] Performance scoring algorithms
@@ -173,6 +190,7 @@ npm run test:e2e
 - [Trend Detection Setup](backend/docs/trend_detection_setup.md)
 - [Success Pattern Recognition Guide](backend/docs/success_patterns_guide.md)
 - [Docker Security Hardening](docker/docs/container_security_hardening.md)
+- [Security Logging and Monitoring](docs/security_logging_monitoring.md)
 - [API Documentation](docs/api.md) - Coming soon
 - [Deployment Guide](docs/deployment.md) - Coming soon
 
