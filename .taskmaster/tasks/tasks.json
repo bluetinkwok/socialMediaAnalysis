@@ -518,8 +518,64 @@
           12,
           17
         ],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set up NLP Environment and Pipeline",
+            "description": "Install and configure NLP libraries such as spaCy, Hugging Face Transformers, and optionally NLTK. Establish the basic NLP pipeline for tokenization, lemmatization, and text preprocessing.",
+            "dependencies": [],
+            "details": "Install required packages (`spacy`, `transformers`, `nltk`), download necessary language models, and create initial pipeline components to prepare text data for further analysis.",
+            "status": "done",
+            "testStrategy": "Verify installation and pipeline by processing sample texts and checking tokenization and lemmatization outputs."
+          },
+          {
+            "id": 2,
+            "title": "Implement Sentiment Analysis Module",
+            "description": "Develop sentiment analysis functionality using transformer models or spaCy pipelines to score sentiment polarity and intensity on posts' content, descriptions, and comments.",
+            "dependencies": [
+              1
+            ],
+            "details": "Leverage pretrained models like BERT or fine-tune if necessary to classify sentiment. Integrate sentiment scoring into the backend service for real-time or batch processing.",
+            "status": "done",
+            "testStrategy": "Test sentiment outputs on benchmark datasets and validate sentiment scores against known labels."
+          },
+          {
+            "id": 3,
+            "title": "Implement Named Entity Recognition (NER)",
+            "description": "Add entity recognition capabilities to extract and classify named entities (persons, organizations, locations, etc.) from text data using spaCy or transformer-based models.",
+            "dependencies": [
+              1
+            ],
+            "details": "Configure and fine-tune NER models to identify relevant entities in social media posts and comments, enhancing content understanding.",
+            "status": "done",
+            "testStrategy": "Evaluate entity extraction accuracy on annotated datasets and perform manual validation on sample posts."
+          },
+          {
+            "id": 4,
+            "title": "Implement Topic Modeling and Keyword Extraction",
+            "description": "Develop topic modeling and keyword extraction features to identify main themes and important terms within the text corpus.",
+            "dependencies": [
+              1
+            ],
+            "details": "Use techniques such as Latent Dirichlet Allocation (LDA) or transformer embeddings clustering for topic modeling, and statistical or embedding-based methods for keyword extraction.",
+            "status": "done",
+            "testStrategy": "Validate topics and keywords by comparing with human-labeled topics and checking relevance on sample data."
+          },
+          {
+            "id": 5,
+            "title": "Integrate NLP Results with Analytics Engine and Database",
+            "description": "Integrate the NLP analysis outputs (sentiment scores, entities, topics, keywords) into the existing analytics backend and store results linked to posts in the database.",
+            "dependencies": [
+              2,
+              3,
+              4
+            ],
+            "details": "Develop API endpoints or service interfaces in `services/nlp_analyzer.py` to process text data and persist NLP results. Ensure compatibility with analytics dashboards and reporting tools.",
+            "status": "done",
+            "testStrategy": "Perform end-to-end testing by processing real post data, verifying database entries, and confirming analytics visualization updates."
+          }
+        ]
       },
       {
         "id": 23,
@@ -533,7 +589,64 @@
           17
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set Up Computer Vision Environment",
+            "description": "Install and configure necessary computer vision libraries and frameworks such as OpenCV, Pillow, TensorFlow, PyTorch, and Hugging Face models.",
+            "dependencies": [],
+            "details": "Prepare the development environment by installing Python packages (e.g., opencv-python, Pillow, tensorflow, torch, transformers) and verify their integration. Ensure compatibility with the backend service architecture.",
+            "status": "pending",
+            "testStrategy": "Verify successful installation by running sample scripts that load images and videos, and perform basic operations like reading and displaying media files."
+          },
+          {
+            "id": 2,
+            "title": "Implement Image Analysis Features",
+            "description": "Develop backend functionalities for image processing including object detection, image classification, face detection, and color analysis.",
+            "dependencies": [
+              1
+            ],
+            "details": "Use pre-trained models or custom-trained models to analyze images and thumbnails. Implement modules to detect objects, classify image content, detect faces, and analyze color histograms or distributions.",
+            "status": "pending",
+            "testStrategy": "Test with a diverse set of images to validate detection accuracy, classification correctness, and face detection robustness."
+          },
+          {
+            "id": 3,
+            "title": "Implement Video Frame Analysis",
+            "description": "Create video processing capabilities to extract keyframes, perform object tracking, and analyze video thumbnails for content insights.",
+            "dependencies": [
+              1
+            ],
+            "details": "Utilize OpenCV and other CV libraries to read video files, extract frames, detect objects or scenes in frames, and perform frame-level analysis such as keyframe extraction and scene recognition.",
+            "status": "pending",
+            "testStrategy": "Validate by processing sample videos to ensure correct frame extraction, object tracking, and scene recognition results."
+          },
+          {
+            "id": 4,
+            "title": "Develop Content Moderation Module",
+            "description": "Implement AI-powered content moderation for images and videos to detect inappropriate or sensitive content.",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Integrate models or APIs capable of identifying explicit, violent, or otherwise restricted content in media files. Automate flagging or filtering based on analysis results.",
+            "status": "pending",
+            "testStrategy": "Test with curated datasets containing both safe and unsafe content to verify detection accuracy and false positive/negative rates."
+          },
+          {
+            "id": 5,
+            "title": "Integrate Computer Vision Results with Analytics Engine",
+            "description": "Link the computer vision analysis outputs to the existing social media analytics platform database and services.",
+            "dependencies": [
+              2,
+              3,
+              4
+            ],
+            "details": "Design and implement data storage schemas to associate CV results with posts and media files. Ensure seamless integration with analytics dashboards and reporting tools.",
+            "status": "pending",
+            "testStrategy": "Perform end-to-end testing by processing media files, storing results, and verifying their availability and correctness in analytics views."
+          }
+        ]
       },
       {
         "id": 24,
@@ -548,7 +661,62 @@
           23
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Integrate NLP Insights into Pattern Recognition",
+            "description": "Incorporate natural language processing features such as keyword extraction and sentiment analysis into the analytics engine's pattern recognition logic.",
+            "dependencies": [],
+            "details": "Refine `analytics/pattern_recognizer.py` to process and analyze text data using NLP techniques, extracting meaningful features that contribute to identifying success patterns.",
+            "status": "pending",
+            "testStrategy": "Validate NLP feature extraction accuracy and ensure correct integration with existing pattern recognition rules through unit and integration tests."
+          },
+          {
+            "id": 2,
+            "title": "Integrate Computer Vision Insights into Pattern Recognition",
+            "description": "Incorporate computer vision features such as object detection and scene recognition into the pattern recognition system.",
+            "dependencies": [
+              1
+            ],
+            "details": "Extend the analytics engine to analyze image and video data, extracting visual features that complement NLP insights for richer pattern identification.",
+            "status": "pending",
+            "testStrategy": "Test CV feature extraction accuracy and verify seamless integration with NLP features in the pattern recognition pipeline."
+          },
+          {
+            "id": 3,
+            "title": "Develop Combined Pattern Recognition Algorithm",
+            "description": "Create an algorithm that effectively combines NLP and computer vision features to identify sophisticated success patterns.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Design and implement rule sets or hybrid models that leverage both text-based and visual data insights to improve pattern recognition accuracy.",
+            "status": "pending",
+            "testStrategy": "Evaluate combined algorithm performance using benchmark datasets and compare against baseline models using only NLP or CV features."
+          },
+          {
+            "id": 4,
+            "title": "Implement Machine Learning Models for Pattern Prediction",
+            "description": "Develop and train machine learning models such as clustering or classification to predict success patterns based on combined AI insights.",
+            "dependencies": [
+              3
+            ],
+            "details": "Utilize labeled data to train models that can generalize pattern recognition beyond rule-based methods, enhancing predictive capabilities.",
+            "status": "pending",
+            "testStrategy": "Perform cross-validation, measure metrics like accuracy and F1-score, and conduct ablation studies to assess model effectiveness."
+          },
+          {
+            "id": 5,
+            "title": "Create Feedback Loop for Continuous Improvement",
+            "description": "Establish a feedback mechanism to iteratively refine pattern recognition models and algorithms based on new data and performance metrics.",
+            "dependencies": [
+              4
+            ],
+            "details": "Implement monitoring, data collection, and retraining pipelines to ensure the system adapts and improves over time with evolving content.",
+            "status": "pending",
+            "testStrategy": "Monitor system performance over time, validate improvements after retraining, and ensure stability and robustness of updates."
+          }
+        ]
       },
       {
         "id": 25,
@@ -562,7 +730,63 @@
           24
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Define Recommendation Types",
+            "description": "Identify and document the types of actionable recommendations to be generated, based on identified success patterns.",
+            "dependencies": [],
+            "details": "List recommendation types such as 'Use images with faces', 'Include positive sentiment keywords', 'Focus on short videos about [topic]'.",
+            "status": "pending",
+            "testStrategy": "Review documentation for completeness and alignment with success patterns."
+          },
+          {
+            "id": 2,
+            "title": "Implement Recommendation Generation Algorithms",
+            "description": "Develop logic in `services/recommendation_engine.py` to generate recommendations from identified success patterns.",
+            "dependencies": [
+              1
+            ],
+            "details": "Write code to analyze patterns and produce specific, data-driven recommendations for content creators.",
+            "status": "pending",
+            "testStrategy": "Unit test recommendation logic with sample patterns and expected outputs."
+          },
+          {
+            "id": 3,
+            "title": "Create Recommendation Storage System",
+            "description": "Design and implement a system to store generated recommendations, linking them to their respective patterns.",
+            "dependencies": [
+              2
+            ],
+            "details": "Set up database or in-memory storage to persist recommendations and their associations.",
+            "status": "pending",
+            "testStrategy": "Test storage and retrieval of recommendations with sample data."
+          },
+          {
+            "id": 4,
+            "title": "Develop Recommendation Prioritization Logic",
+            "description": "Implement logic to prioritize recommendations based on relevance, impact, or other criteria.",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Add scoring or ranking mechanisms to ensure the most actionable recommendations are surfaced first.",
+            "status": "pending",
+            "testStrategy": "Test prioritization with varied input data and verify ranking accuracy."
+          },
+          {
+            "id": 5,
+            "title": "Build API Endpoints for Recommendation Retrieval",
+            "description": "Develop API endpoints to allow external systems or users to retrieve actionable recommendations.",
+            "dependencies": [
+              3,
+              4
+            ],
+            "details": "Implement endpoints in `services/recommendation_engine.py` to serve recommendations via HTTP.",
+            "status": "pending",
+            "testStrategy": "Test API endpoints for correct response format and data integrity."
+          }
+        ]
       },
       {
         "id": 26,
@@ -579,7 +803,61 @@
           25
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design Analytics & Insights Page Layout",
+            "description": "Create a detailed wireframe and UI/UX design for the Analytics & Insights page, organizing sections for performance metrics, success patterns, and recommendations.",
+            "dependencies": [],
+            "details": "Plan the layout to include interactive charts, pattern displays, and recommendation areas ensuring clarity and user-friendly navigation.",
+            "status": "pending",
+            "testStrategy": "Review design prototypes with stakeholders and conduct usability testing on wireframes."
+          },
+          {
+            "id": 2,
+            "title": "Implement Backend API Integration",
+            "description": "Develop the data fetching logic in AnalyticsInsights.tsx to retrieve overall performance trends, identified patterns, and recommendations from backend APIs.",
+            "dependencies": [
+              1
+            ],
+            "details": "Set up API calls, handle data loading states, errors, and ensure data is correctly formatted for visualization components.",
+            "status": "pending",
+            "testStrategy": "Perform API response mocking and integration testing to verify data accuracy and error handling."
+          },
+          {
+            "id": 3,
+            "title": "Develop Performance Visualization Components",
+            "description": "Build interactive chart components to visualize overall performance trends and comparisons using charting libraries.",
+            "dependencies": [
+              2
+            ],
+            "details": "Use libraries like Chart.js or D3.js to create trend charts, bar graphs, and other relevant visualizations reflecting key performance indicators.",
+            "status": "pending",
+            "testStrategy": "Unit test chart rendering with sample data and validate responsiveness and interactivity."
+          },
+          {
+            "id": 4,
+            "title": "Create Success Pattern Visualization Components",
+            "description": "Implement UI components to display identified success patterns clearly and intuitively.",
+            "dependencies": [
+              2
+            ],
+            "details": "Design visual elements such as pattern highlights, heatmaps, or lists that showcase recurring successful behaviors or metrics.",
+            "status": "pending",
+            "testStrategy": "Test pattern components with various data sets to ensure correct pattern representation and UI consistency."
+          },
+          {
+            "id": 5,
+            "title": "Build Recommendation Display Components",
+            "description": "Develop components to present actionable recommendations derived from analytics data in a clear and accessible manner.",
+            "dependencies": [
+              2
+            ],
+            "details": "Design recommendation cards or sections that summarize insights and suggest next steps for users based on data analysis.",
+            "status": "pending",
+            "testStrategy": "Validate recommendation content rendering and test user interaction flows for clarity and usability."
+          }
+        ]
       },
       {
         "id": 27,
@@ -592,7 +870,61 @@
           13
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design Scheduling System Architecture",
+            "description": "Design the overall architecture for the automated scheduling system to monitor social media channels and accounts with regular content updates.",
+            "dependencies": [],
+            "details": "Define system components including scheduler, monitoring jobs, notification system, and user interface. Decide on scheduling library (e.g., APScheduler or Celery) based on scalability and concurrency needs. Specify data flow, storage of monitoring configurations, and integration points with downloader services.",
+            "status": "pending",
+            "testStrategy": "Review design documents with stakeholders and validate architecture against PRD requirements."
+          },
+          {
+            "id": 2,
+            "title": "Implement Job Scheduler Backend",
+            "description": "Develop the backend job scheduler using the chosen scheduling library to execute periodic monitoring tasks.",
+            "dependencies": [
+              1
+            ],
+            "details": "Set up APScheduler or Celery with Redis broker. Implement scheduling intervals and limits as per PRD. Ensure tasks run asynchronously and handle retries and failures gracefully. Provide APIs for managing scheduled jobs.",
+            "status": "pending",
+            "testStrategy": "Unit test scheduling logic, simulate task execution, and verify retry and failure handling."
+          },
+          {
+            "id": 3,
+            "title": "Create Monitoring Jobs for Multiple Platforms",
+            "description": "Develop monitoring jobs that periodically check specified social media channels/accounts for new content using downloader services.",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement platform-specific monitoring logic for each supported social media channel/account. Integrate with downloader services to fetch new content. Store monitoring results and update statuses in the database.",
+            "status": "pending",
+            "testStrategy": "Perform integration testing with downloader services and validate content retrieval accuracy."
+          },
+          {
+            "id": 4,
+            "title": "Develop Notification System for New Content",
+            "description": "Build a notification system to alert users or systems when new content is detected by monitoring jobs.",
+            "dependencies": [
+              3
+            ],
+            "details": "Implement notification triggers based on monitoring job outputs. Support multiple notification channels (e.g., email, in-app alerts). Ensure notifications are timely and configurable.",
+            "status": "pending",
+            "testStrategy": "Test notification delivery under various scenarios and verify user-configured preferences."
+          },
+          {
+            "id": 5,
+            "title": "Build User Interface for Scheduling Configuration",
+            "description": "Create a user-friendly interface to allow users to configure scheduling intervals, monitoring targets, and notification preferences.",
+            "dependencies": [
+              2
+            ],
+            "details": "Design and implement frontend components for scheduling setup and management. Connect UI with backend APIs to persist configurations in the database. Provide validation and feedback to users.",
+            "status": "pending",
+            "testStrategy": "Conduct usability testing and verify data consistency between UI and backend."
+          }
+        ]
       },
       {
         "id": 28,
@@ -607,7 +939,61 @@
           4
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Configure Persistent Storage Volumes",
+            "description": "Set up Docker volumes in docker-compose.yml to persist the SQLite database file and the downloads directory.",
+            "dependencies": [],
+            "details": "Define named volumes for the SQLite database and downloads directory to ensure data persistence across container restarts. Mount these volumes correctly in the service definitions to the appropriate container paths.",
+            "status": "pending",
+            "testStrategy": "Verify data persistence by restarting containers and checking that database and downloaded content remain intact."
+          },
+          {
+            "id": 2,
+            "title": "Set Up Environment Variables",
+            "description": "Configure environment variables in docker-compose.yml for application settings such as API keys and database paths.",
+            "dependencies": [
+              1
+            ],
+            "details": "Use environment variables and .env files to manage sensitive information and configuration settings. Ensure variables are injected into containers securely and correctly.",
+            "status": "pending",
+            "testStrategy": "Test container startup with environment variables set and verify application reads them correctly."
+          },
+          {
+            "id": 3,
+            "title": "Optimize Container Resource Limits",
+            "description": "Apply CPU and memory resource constraints in docker-compose.yml to optimize container performance and prevent resource monopolization.",
+            "dependencies": [
+              2
+            ],
+            "details": "Define resource limits under the deploy section for each service to control CPU and memory usage, ensuring stable production deployment.",
+            "status": "pending",
+            "testStrategy": "Monitor container resource usage under load to confirm limits are enforced and performance is stable."
+          },
+          {
+            "id": 4,
+            "title": "Implement Container Health Checks",
+            "description": "Add health check configurations to docker-compose.yml to monitor container health and readiness.",
+            "dependencies": [
+              3
+            ],
+            "details": "Define healthcheck commands and intervals for each service to enable Docker to detect unhealthy containers and restart them if necessary.",
+            "status": "pending",
+            "testStrategy": "Simulate failure scenarios and verify that unhealthy containers are detected and handled appropriately."
+          },
+          {
+            "id": 5,
+            "title": "Create Deployment Documentation",
+            "description": "Document the finalized Docker Compose configuration and deployment process for production.",
+            "dependencies": [
+              4
+            ],
+            "details": "Prepare clear documentation covering volume setup, environment variables, resource limits, health checks, and deployment commands to assist future maintenance and onboarding.",
+            "status": "pending",
+            "testStrategy": "Review documentation for completeness and accuracy; conduct a deployment walkthrough using the documentation."
+          }
+        ]
       },
       {
         "id": 29,
@@ -1201,7 +1587,7 @@
     ],
     "metadata": {
       "created": "2025-06-22T11:33:57.173Z",
-      "updated": "2025-07-01T04:06:27.451Z",
+      "updated": "2025-07-01T14:19:20.333Z",
       "description": "Tasks for master context"
     }
   }

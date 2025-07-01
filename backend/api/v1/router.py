@@ -14,6 +14,8 @@ from .success_patterns import router as success_patterns_router
 from .security import router as security_router
 from .uploads import router as uploads_router
 from .youtube import router as youtube_router
+from .nlp import router as nlp_router
+from .nlp import router as nlp_router
 # from .extraction import router as extraction_router  # Temporarily disabled
 
 # Create main API router
@@ -30,6 +32,8 @@ api_router.include_router(success_patterns_router, tags=["success-patterns"])
 api_router.include_router(security_router, tags=["security"])
 api_router.include_router(uploads_router, prefix="/uploads", tags=["uploads"])
 api_router.include_router(youtube_router, prefix="/youtube", tags=["youtube"])
+api_router.include_router(nlp_router, prefix="/nlp", tags=["nlp"])
+api_router.include_router(nlp_router, prefix="/nlp", tags=["nlp"])
 
 # Additional routers will be added as we develop them:
 # from . import extraction

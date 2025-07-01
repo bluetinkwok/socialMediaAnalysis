@@ -1,0 +1,20 @@
+--- engine.py.orig	2023-10-10 10:00:00
++++ engine.py	2023-10-10 10:30:00
+@@ -59,6 +59,16 @@
+             # Calculate advanced metrics
+             advanced_metrics = self.metrics_calculator.calculate_advanced_metrics(processed_metrics)
+             
++            # Perform NLP analysis
++            nlp_results = self.nlp_analyzer.analyze_post(post)
++            content_features = self.nlp_analyzer.extract_content_features(post)
++            
++            # Update content quality score with NLP insights
++            nlp_content_quality = self.nlp_analyzer.calculate_content_quality_score(nlp_results)
++            advanced_metrics.content_quality_score = (advanced_metrics.content_quality_score + nlp_content_quality) / 2
++            
++            # Add NLP-identified patterns
++            nlp_patterns = self.nlp_analyzer.identify_content_patterns(nlp_results)
++            
+             # Apply enhanced pattern recognition
+             enhanced_patterns = self.pattern_recognizer.recognize_patterns(
+                 post, processed_metrics, advanced_metrics

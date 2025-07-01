@@ -33,6 +33,9 @@ class AnalyticsEngine:
         self.nlp_analyzer = NLPAnalyzer()
         
         logger.info("Analytics Engine initialized with NLP capabilities")
+        self.nlp_analyzer = NLPAnalyzer()
+        
+        logger.info("Analytics Engine initialized with NLP capabilities")
     
     def analyze_post(self, post_id: int) -> Dict[str, Any]:
         """
@@ -58,23 +61,10 @@ class AnalyticsEngine:
             # Calculate advanced metrics
             advanced_metrics = self.metrics_calculator.calculate_advanced_metrics(processed_metrics)
             
-            # Perform NLP analysis
-            nlp_results = self.nlp_analyzer.analyze_post(post)
-            content_features = self.nlp_analyzer.extract_content_features(post)
-            
-            # Update content quality score with NLP insights
-            nlp_content_quality = self.nlp_analyzer.calculate_content_quality_score(nlp_results)
-            advanced_metrics.content_quality_score = (advanced_metrics.content_quality_score + nlp_content_quality) / 2
-            
-            # Add NLP-identified patterns
-            nlp_patterns = self.nlp_analyzer.identify_content_patterns(nlp_results)
-            
             # Apply enhanced pattern recognition
             enhanced_patterns = self.pattern_recognizer.recognize_patterns(
                 post, processed_metrics, advanced_metrics
             )
-            # Combine traditional patterns with NLP-identified patterns
-            enhanced_patterns.extend(nlp_patterns)
             advanced_metrics.success_patterns = enhanced_patterns
             
             # Calculate performance score with detailed breakdown
@@ -84,16 +74,6 @@ class AnalyticsEngine:
             )
             performance_score = score_breakdown.final_score
             
-            # Apply sentiment-based adjustment if applicable
-            if "sentiment" in nlp_results and post.platform:
-                sentiment_score = nlp_results["sentiment"]["score"]
-                sentiment_boost = self.nlp_analyzer.get_sentiment_boost(
-                    sentiment_score, 
-                    post.platform.value
-                )
-                performance_score *= sentiment_boost
-                score_breakdown.final_score = performance_score
-            
             # Create or update analytics data with full details
             analytics_data = self._create_or_update_analytics_data(
                 post, 
@@ -101,8 +81,7 @@ class AnalyticsEngine:
                 advanced_metrics, 
                 performance_score,
                 score_breakdown,
-                processing_start_time,
-                content_features=content_features  # Add NLP content features
+                processing_start_time
             )
             
             # Update post flags
@@ -127,11 +106,6 @@ class AnalyticsEngine:
                     "trend_score": advanced_metrics.trend_score,
                     "content_quality_score": advanced_metrics.content_quality_score,
                     "success_patterns": advanced_metrics.success_patterns
-                },
-                "nlp_analysis": {
-                    "sentiment": nlp_results.get("sentiment", {}),
-                    "topics": [t["name"] for t in nlp_results.get("topics", [])[:3]],
-                    "keywords": [k["keyword"] for k in nlp_results.get("keywords", [])[:5]]
                 },
                 "score_breakdown": {
                     "final_score": score_breakdown.final_score,
@@ -176,38 +150,16 @@ class AnalyticsEngine:
             # Calculate advanced metrics
             advanced_metrics = self.metrics_calculator.calculate_advanced_metrics(processed_metrics)
             
-            # Perform NLP analysis
-            nlp_results = self.nlp_analyzer.analyze_post(post)
-            content_features = self.nlp_analyzer.extract_content_features(post)
-            
-            # Update content quality score with NLP insights
-            nlp_content_quality = self.nlp_analyzer.calculate_content_quality_score(nlp_results)
-            advanced_metrics.content_quality_score = (advanced_metrics.content_quality_score + nlp_content_quality) / 2
-            
-            # Add NLP-identified patterns
-            nlp_patterns = self.nlp_analyzer.identify_content_patterns(nlp_results)
-            
             # Apply enhanced pattern recognition
             enhanced_patterns = self.pattern_recognizer.recognize_patterns(
                 post, processed_metrics, advanced_metrics
             )
-            # Combine traditional patterns with NLP-identified patterns
-            enhanced_patterns.extend(nlp_patterns)
             advanced_metrics.success_patterns = enhanced_patterns
             
             # Calculate detailed score breakdown
             score_breakdown = self.scoring_algorithm.calculate_score_detailed(
                 advanced_metrics, processed_metrics
             )
-            
-            # Apply sentiment-based adjustment if applicable
-            if "sentiment" in nlp_results and post.platform:
-                sentiment_score = nlp_results["sentiment"]["score"]
-                sentiment_boost = self.nlp_analyzer.get_sentiment_boost(
-                    sentiment_score, 
-                    post.platform.value
-                )
-                score_breakdown.final_score *= sentiment_boost
             
             # Create or update analytics data with full details
             analytics_data = self._create_or_update_analytics_data(
@@ -216,8 +168,7 @@ class AnalyticsEngine:
                 advanced_metrics, 
                 score_breakdown.final_score,
                 score_breakdown,
-                processing_start_time,
-                content_features=content_features  # Add NLP content features
+                processing_start_time
             )
             
             # Mark post as analyzed
@@ -231,8 +182,6 @@ class AnalyticsEngine:
                 'analytics_data': analytics_data,
                 'processed_metrics': processed_metrics,
                 'advanced_metrics': advanced_metrics,
-                'nlp_analysis': nlp_results,
-                'content_features': content_features,
                 'score_breakdown': score_breakdown
             }
             
@@ -298,25 +247,24 @@ class AnalyticsEngine:
             Post.platform == platform,
             Post.is_analyzed == False
         )
-        
         if limit:
             query = query.limit(limit)
         
         platform_posts = query.all()
         post_ids = [post.id for post in platform_posts]
         
-        logger.info(f"Found {len(post_ids)} unanalyzed posts from {platform.value}")
+        logger.info(f"Found {len(post_ids)} unprocessed {platform.value} posts")
         return self.analyze_batch_posts(post_ids)
     
     def reanalyze_post(self, post_id: int) -> Optional[AnalyticsData]:
         """
-        Reanalyze a post that has already been analyzed
+        Re-analyze a post (even if already analyzed)
         
         Args:
-            post_id: ID of the post to reanalyze
+            post_id: ID of the post to re-analyze
             
         Returns:
-            AnalyticsData: Updated analytics data
+            AnalyticsData: Updated analytics record or None if failed
         """
         try:
             # Get the post
@@ -325,101 +273,79 @@ class AnalyticsEngine:
                 logger.error(f"Post with ID {post_id} not found")
                 return None
             
-            # Delete existing analytics data
-            self.db.query(AnalyticsData).filter(AnalyticsData.post_id == post_id).delete()
-            
-            # Reset analysis flag
+            # Temporarily mark as unanalyzed to force reprocessing
+            original_analyzed_state = post.is_analyzed
             post.is_analyzed = False
-            post.performance_score = None
-            self.db.commit()
             
-            # Reanalyze the post
-            result = self.analyze_post_detailed(post_id)
-            if result:
-                logger.info(f"Post {post_id} reanalyzed successfully")
-                return result.get('analytics_data')
-            else:
-                logger.error(f"Failed to reanalyze post {post_id}")
-                return None
-                
+            # Analyze the post
+            result = self.analyze_post(post_id)
+            
+            # If analysis failed, restore original state
+            if not result:
+                post.is_analyzed = original_analyzed_state
+                self.db.commit()
+            
+            return result
+            
         except Exception as e:
+            logger.error(f"Error re-analyzing post {post_id}: {str(e)}")
             self.db.rollback()
-            logger.error(f"Error reanalyzing post {post_id}: {str(e)}")
             return None
     
     def get_analytics_summary(self, platform: Optional[PlatformType] = None) -> Dict[str, Any]:
         """
-        Get summary of analytics data
+        Get summary statistics for analytics data
         
         Args:
             platform: Optional platform filter
             
         Returns:
-            Dict[str, Any]: Analytics summary
+            Dict: Summary statistics
         """
         try:
-            # Base query for posts with analytics
+            # Base query
             query = self.db.query(Post).filter(Post.is_analyzed == True)
             
-            # Apply platform filter if specified
             if platform:
                 query = query.filter(Post.platform == platform)
             
-            # Count total analyzed posts
-            total_posts = query.count()
+            posts = query.all()
             
-            if total_posts == 0:
+            if not posts:
                 return {
                     "total_posts": 0,
-                    "average_score": 0,
-                    "high_performing_count": 0,
-                    "low_performing_count": 0,
-                    "platform_breakdown": {}
+                    "platform": platform.value if platform else "all",
+                    "message": "No analyzed posts found"
                 }
             
-            # Calculate average performance score
-            avg_score = self.db.query(func.avg(Post.performance_score)).filter(
-                Post.is_analyzed == True
-            ).scalar() or 0
+            # Calculate summary statistics
+            total_posts = len(posts)
+            avg_performance_score = sum(post.performance_score or 0 for post in posts) / total_posts
             
-            # Count high and low performing posts
-            high_performing = query.filter(Post.performance_score >= 70).count()
-            low_performing = query.filter(Post.performance_score <= 30).count()
+            # Get performance score distribution
+            scores = [post.performance_score or 0 for post in posts]
+            scores.sort()
             
-            # Get platform breakdown
-            platform_breakdown = {}
-            for p in PlatformType:
-                platform_count = self.db.query(Post).filter(
-                    Post.is_analyzed == True,
-                    Post.platform == p
-                ).count()
-                
-                if platform_count > 0:
-                    platform_avg = self.db.query(func.avg(Post.performance_score)).filter(
-                        Post.is_analyzed == True,
-                        Post.platform == p
-                    ).scalar() or 0
-                    
-                    platform_breakdown[p.value] = {
-                        "count": platform_count,
-                        "average_score": round(platform_avg, 2)
-                    }
-            
-            return {
+            summary = {
                 "total_posts": total_posts,
-                "average_score": round(avg_score, 2),
-                "high_performing_count": high_performing,
-                "high_performing_percentage": round((high_performing / total_posts) * 100, 1),
-                "low_performing_count": low_performing,
-                "low_performing_percentage": round((low_performing / total_posts) * 100, 1),
-                "platform_breakdown": platform_breakdown
+                "platform": platform.value if platform else "all",
+                "average_performance_score": round(avg_performance_score, 2),
+                "min_score": min(scores),
+                "max_score": max(scores),
+                "median_score": scores[len(scores) // 2] if scores else 0,
+                "score_distribution": {
+                    "excellent": len([s for s in scores if s >= 80]),
+                    "good": len([s for s in scores if 60 <= s < 80]),
+                    "average": len([s for s in scores if 40 <= s < 60]),
+                    "poor": len([s for s in scores if s < 40])
+                }
             }
+            
+            return summary
             
         except Exception as e:
-            logger.error(f"Error getting analytics summary: {str(e)}")
-            return {
-                "error": str(e)
-            }
+            logger.error(f"Error generating analytics summary: {str(e)}")
+            return {"error": str(e)}
     
     def _create_or_update_analytics_data(
         self, 
@@ -428,48 +354,40 @@ class AnalyticsEngine:
         advanced_metrics: AdvancedMetrics,
         performance_score: float,
         score_breakdown: Optional[ScoreBreakdown] = None,
-        processing_start_time: Optional[datetime] = None,
-        content_features: Optional[Dict[str, Any]] = None
+        processing_start_time: Optional[datetime] = None
     ) -> AnalyticsData:
         """
         Create or update analytics data for a post
         
         Args:
             post: Post model instance
-            processed_metrics: Processed metrics
-            advanced_metrics: Advanced metrics
+            processed_metrics: Processed metrics data
+            advanced_metrics: Advanced calculated metrics
             performance_score: Overall performance score
-            score_breakdown: Detailed score breakdown
-            processing_start_time: Start time of processing
-            content_features: NLP-extracted content features
+            score_breakdown: Optional detailed score breakdown
+            processing_start_time: Optional start time for processing duration calculation
             
         Returns:
-            AnalyticsData: Created or updated analytics data
+            AnalyticsData: Created or updated analytics record
         """
         # Check if analytics data already exists
-        analytics_data = self.db.query(AnalyticsData).filter(
+        existing_analytics = self.db.query(AnalyticsData).filter(
             AnalyticsData.post_id == post.id
         ).first()
         
-        if not analytics_data:
-            # Create new analytics data
-            analytics_data = AnalyticsData(
-                post_id=post.id,
-                engagement_rate=processed_metrics.engagement_rate,
-                performance_score=performance_score
-            )
-            self.db.add(analytics_data)
+        if existing_analytics:
+            # Update existing record
+            analytics_data = existing_analytics
+            analytics_data.analyzed_at = datetime.now(timezone.utc)
         else:
-            # Update existing analytics data
-            analytics_data.engagement_rate = processed_metrics.engagement_rate
-            analytics_data.performance_score = performance_score
+            # Create new record
+            analytics_data = AnalyticsData(post_id=post.id)
         
-        # Calculate processing duration
-        if processing_start_time:
-            processing_duration = (datetime.now(timezone.utc) - processing_start_time).total_seconds()
-            analytics_data.processing_duration = processing_duration
+        # Core performance metrics
+        analytics_data.engagement_rate = processed_metrics.engagement_rate
+        analytics_data.performance_score = performance_score
         
-        # Update advanced metrics
+        # Advanced metrics from MetricsCalculator
         analytics_data.virality_score = advanced_metrics.virality_score
         analytics_data.trend_score = advanced_metrics.trend_score
         analytics_data.engagement_velocity = advanced_metrics.engagement_velocity
@@ -477,92 +395,99 @@ class AnalyticsEngine:
         analytics_data.audience_reach_score = advanced_metrics.audience_reach_score
         analytics_data.interaction_depth_score = advanced_metrics.interaction_depth_score
         
-        # Update success patterns
-        analytics_data.success_patterns = [
-            pattern.to_dict() if hasattr(pattern, 'to_dict') else pattern
-            for pattern in advanced_metrics.success_patterns
-        ] if advanced_metrics.success_patterns else []
-        
-        # Add NLP content features if available
-        if content_features:
-            analytics_data.content_features = content_features
-        
-        # Update score breakdown components if available
+        # Scoring breakdown components (if available)
         if score_breakdown:
-            analytics_data.weighted_components = score_breakdown.components
+            analytics_data.weighted_components = score_breakdown.weighted_components
             analytics_data.applied_bonuses = score_breakdown.bonuses
             analytics_data.applied_penalties = score_breakdown.penalties
             analytics_data.platform_adjustment = score_breakdown.platform_adjustment
             analytics_data.confidence_score = score_breakdown.confidence_score
+        else:
+            # Calculate basic confidence if no breakdown provided
+            analytics_data.confidence_score = self._calculate_basic_confidence(processed_metrics)
+            analytics_data.platform_adjustment = 1.0
         
-        # Update data quality assessment
-        data_quality = self._assess_data_quality(processed_metrics, advanced_metrics)
-        analytics_data.data_quality_flags = data_quality
+        # Time-based metrics
+        if processed_metrics.publish_date:
+            now = datetime.now(timezone.utc)
+            days_since_publish = (now - processed_metrics.publish_date).days
+            analytics_data.days_since_publish = days_since_publish
+            
+            # Estimate peak engagement hour (simplified - could be enhanced)
+            analytics_data.peak_engagement_hour = processed_metrics.publish_date.hour
         
-        # Update analyzed timestamp
-        analytics_data.analyzed_at = datetime.now(timezone.utc)
+        # Pattern recognition and features
+        analytics_data.success_patterns = advanced_metrics.success_patterns
+        analytics_data.content_features = advanced_metrics.content_features
+        
+        # Processing metadata
+        analytics_data.algorithm_version = "1.0"
+        
+        if processing_start_time:
+            processing_duration = (datetime.now(timezone.utc) - processing_start_time).total_seconds()
+            analytics_data.processing_duration = processing_duration
+        
+        # Data quality flags
+        quality_flags = self._assess_data_quality(processed_metrics, advanced_metrics)
+        analytics_data.data_quality_flags = quality_flags
+        
+        # Add to session if new
+        if not existing_analytics:
+            self.db.add(analytics_data)
         
         return analytics_data
     
     def _calculate_basic_confidence(self, processed_metrics: ProcessedMetrics) -> float:
-        """
-        Calculate basic confidence score for analytics
+        """Calculate basic confidence score when detailed breakdown is not available"""
+        confidence_factors = []
         
-        Args:
-            processed_metrics: Processed metrics
-            
-        Returns:
-            float: Confidence score (0-100)
-        """
-        confidence = 100.0
-        
-        # Reduce confidence for low view counts
-        if processed_metrics.views < 100:
-            confidence *= 0.7
-        elif processed_metrics.views < 1000:
-            confidence *= 0.9
-        
-        # Reduce confidence for very new content (might not have stabilized)
+        # Data completeness
+        if processed_metrics.views > 0:
+            confidence_factors.append(25)
+        if processed_metrics.total_engagement > 0:
+            confidence_factors.append(25)
         if processed_metrics.publish_date:
-            hours_since_publish = (datetime.now(timezone.utc) - processed_metrics.publish_date).total_seconds() / 3600
-            if hours_since_publish < 24:
-                confidence *= 0.8
-            elif hours_since_publish < 72:
-                confidence *= 0.9
+            confidence_factors.append(20)
         
-        return confidence
+        # Sample size confidence
+        if processed_metrics.views > 1000:
+            confidence_factors.append(30)
+        elif processed_metrics.views > 100:
+            confidence_factors.append(15)
+        
+        return min(sum(confidence_factors), 100)
     
     def _assess_data_quality(
         self, 
         processed_metrics: ProcessedMetrics, 
         advanced_metrics: AdvancedMetrics
     ) -> Dict[str, Any]:
-        """
-        Assess data quality and identify potential issues
-        
-        Args:
-            processed_metrics: Processed metrics
-            advanced_metrics: Advanced metrics
-            
-        Returns:
-            Dict[str, Any]: Data quality assessment
-        """
+        """Assess data quality and return flags for any issues"""
         flags = {}
         
-        # Check for missing view data
+        # Check for missing critical data
         if processed_metrics.views == 0:
-            flags["missing_view_data"] = True
+            flags['no_views_data'] = True
         
-        # Check for suspiciously high engagement rate
-        if processed_metrics.engagement_rate > 100:
-            flags["suspicious_engagement_rate"] = processed_metrics.engagement_rate
+        if processed_metrics.total_engagement == 0:
+            flags['no_engagement_data'] = True
         
-        # Check for very low engagement
-        if processed_metrics.total_engagement == 0 and processed_metrics.views > 100:
-            flags["zero_engagement"] = True
+        if not processed_metrics.publish_date:
+            flags['missing_publish_date'] = True
         
-        # Check for suspicious virality score
-        if advanced_metrics.virality_score > 95:
-            flags["suspicious_virality"] = advanced_metrics.virality_score
+        # Check for suspicious data patterns
+        if processed_metrics.engagement_rate > 50:  # Unrealistically high engagement
+            flags['suspicious_high_engagement'] = True
         
-        return flags
+        if processed_metrics.total_engagement > processed_metrics.views:
+            flags['engagement_exceeds_views'] = True
+        
+        # Check for low confidence indicators
+        if processed_metrics.views < 10:
+            flags['very_low_sample_size'] = True
+        
+        # Check algorithm-specific issues
+        if advanced_metrics.confidence_score and advanced_metrics.confidence_score < 30:
+            flags['low_algorithm_confidence'] = True
+        
+        return flags if flags else None 
