@@ -15,6 +15,7 @@ from .metrics_calculator import MetricsCalculator, AdvancedMetrics
 from .scoring_algorithm import ScoringAlgorithm, ScoreBreakdown
 from .pattern_recognizer import PatternRecognizer
 from .nlp_analyzer import NLPAnalyzer
+from .cv_analyzer import CVAnalyzer
 from db.models import Post, AnalyticsData, PlatformType
 from db.database import SessionLocal
 
@@ -31,8 +32,9 @@ class AnalyticsEngine:
         self.scoring_algorithm = ScoringAlgorithm()
         self.pattern_recognizer = PatternRecognizer(self.db)
         self.nlp_analyzer = NLPAnalyzer()
+        self.cv_analyzer = CVAnalyzer()
         
-        logger.info("Analytics Engine initialized with NLP capabilities")
+        logger.info("Analytics Engine initialized with NLP and CV capabilities")
     
     def analyze_post(self, post_id: int) -> Dict[str, Any]:
         """
@@ -60,21 +62,47 @@ class AnalyticsEngine:
             
             # Perform NLP analysis
             nlp_results = self.nlp_analyzer.analyze_post(post)
-            content_features = self.nlp_analyzer.extract_content_features(post)
+            nlp_content_features = self.nlp_analyzer.extract_content_features(post)
             
-            # Update content quality score with NLP insights
+            # Perform CV analysis if post has images or videos
+            cv_results = {}
+            cv_content_features = {}
+            if post.images or post.videos:
+                post_data = {
+                    'images': post.images.split(',') if post.images else [],
+                    'videos': post.videos.split(',') if post.videos else []
+                }
+                cv_results = self.cv_analyzer.analyze_content(post_data)
+                cv_content_features = self.cv_analyzer.extract_content_features(post_data)
+            
+            # Update content quality score with NLP and CV insights
             nlp_content_quality = self.nlp_analyzer.calculate_content_quality_score(nlp_results)
-            advanced_metrics.content_quality_score = (advanced_metrics.content_quality_score + nlp_content_quality) / 2
+            cv_content_quality = self.cv_analyzer.calculate_content_quality_score(post_data) if post.images or post.videos else 0
+            
+            # Combine NLP and CV quality scores
+            if cv_content_quality > 0:
+                # If we have both NLP and CV scores, use weighted average
+                combined_quality = (nlp_content_quality * 0.6) + (cv_content_quality * 0.4)
+            else:
+                # If we only have NLP score, use that
+                combined_quality = nlp_content_quality
+            
+            # Update the content quality score
+            advanced_metrics.content_quality_score = combined_quality
             
             # Add NLP-identified patterns
             nlp_patterns = self.nlp_analyzer.identify_content_patterns(nlp_results)
+            
+            # Add CV-identified patterns
+            cv_patterns = self.cv_analyzer.identify_visual_patterns(post_data) if post.images or post.videos else []
             
             # Apply enhanced pattern recognition
             enhanced_patterns = self.pattern_recognizer.recognize_patterns(
                 post, processed_metrics, advanced_metrics
             )
-            # Combine traditional patterns with NLP-identified patterns
+            # Combine traditional patterns with NLP and CV identified patterns
             enhanced_patterns.extend(nlp_patterns)
+            enhanced_patterns.extend(cv_patterns)
             advanced_metrics.success_patterns = enhanced_patterns
             
             # Calculate performance score with detailed breakdown
@@ -94,6 +122,14 @@ class AnalyticsEngine:
                 performance_score *= sentiment_boost
                 score_breakdown.final_score = performance_score
             
+            # Combine NLP and CV content features
+            content_features = {**nlp_content_features}
+            if cv_content_features:
+                content_features.update(cv_content_features)
+                # If both NLP and CV detected people/entities, mark as high-interest
+                if nlp_content_features.get('has_entities', False) and cv_content_features.get('has_people', False):
+                    content_features['high_interest_content'] = True
+            
             # Create or update analytics data with full details
             analytics_data = self._create_or_update_analytics_data(
                 post, 
@@ -102,7 +138,7 @@ class AnalyticsEngine:
                 performance_score,
                 score_breakdown,
                 processing_start_time,
-                content_features=content_features  # Add NLP content features
+                content_features=content_features
             )
             
             # Update post flags
@@ -112,7 +148,8 @@ class AnalyticsEngine:
             # Commit changes
             self.db.commit()
             
-            return {
+            # Prepare response with combined NLP and CV analysis
+            response = {
                 "success": True,
                 "post_id": post_id,
                 "performance_score": performance_score,
@@ -141,6 +178,20 @@ class AnalyticsEngine:
                 },
                 "processing_time": analytics_data.processing_duration
             }
+            
+            # Add CV analysis if available
+            if cv_results:
+                response["cv_analysis"] = {
+                    "content_type": cv_results.get("content_type", "none"),
+                    "has_people": cv_content_features.get("has_people", False),
+                    "visual_quality_score": cv_content_features.get("visual_quality_score", 0)
+                }
+                
+                # Add dominant scene if available
+                if "dominant_scene" in cv_content_features:
+                    response["cv_analysis"]["dominant_scene"] = cv_content_features["dominant_scene"]
+            
+            return response
             
         except Exception as e:
             self.db.rollback()
@@ -178,21 +229,47 @@ class AnalyticsEngine:
             
             # Perform NLP analysis
             nlp_results = self.nlp_analyzer.analyze_post(post)
-            content_features = self.nlp_analyzer.extract_content_features(post)
+            nlp_content_features = self.nlp_analyzer.extract_content_features(post)
             
-            # Update content quality score with NLP insights
+            # Perform CV analysis if post has images or videos
+            cv_results = {}
+            cv_content_features = {}
+            if post.images or post.videos:
+                post_data = {
+                    'images': post.images.split(',') if post.images else [],
+                    'videos': post.videos.split(',') if post.videos else []
+                }
+                cv_results = self.cv_analyzer.analyze_content(post_data)
+                cv_content_features = self.cv_analyzer.extract_content_features(post_data)
+            
+            # Update content quality score with NLP and CV insights
             nlp_content_quality = self.nlp_analyzer.calculate_content_quality_score(nlp_results)
-            advanced_metrics.content_quality_score = (advanced_metrics.content_quality_score + nlp_content_quality) / 2
+            cv_content_quality = self.cv_analyzer.calculate_content_quality_score(post_data) if post.images or post.videos else 0
+            
+            # Combine NLP and CV quality scores
+            if cv_content_quality > 0:
+                # If we have both NLP and CV scores, use weighted average
+                combined_quality = (nlp_content_quality * 0.6) + (cv_content_quality * 0.4)
+            else:
+                # If we only have NLP score, use that
+                combined_quality = nlp_content_quality
+            
+            # Update the content quality score
+            advanced_metrics.content_quality_score = combined_quality
             
             # Add NLP-identified patterns
             nlp_patterns = self.nlp_analyzer.identify_content_patterns(nlp_results)
+            
+            # Add CV-identified patterns
+            cv_patterns = self.cv_analyzer.identify_visual_patterns(post_data) if post.images or post.videos else []
             
             # Apply enhanced pattern recognition
             enhanced_patterns = self.pattern_recognizer.recognize_patterns(
                 post, processed_metrics, advanced_metrics
             )
-            # Combine traditional patterns with NLP-identified patterns
+            # Combine traditional patterns with NLP and CV identified patterns
             enhanced_patterns.extend(nlp_patterns)
+            enhanced_patterns.extend(cv_patterns)
             advanced_metrics.success_patterns = enhanced_patterns
             
             # Calculate detailed score breakdown
@@ -209,36 +286,72 @@ class AnalyticsEngine:
                 )
                 score_breakdown.final_score *= sentiment_boost
             
-            # Create or update analytics data with full details
+            # Combine NLP and CV content features
+            content_features = {**nlp_content_features}
+            if cv_content_features:
+                content_features.update(cv_content_features)
+                # If both NLP and CV detected people/entities, mark as high-interest
+                if nlp_content_features.get('has_entities', False) and cv_content_features.get('has_people', False):
+                    content_features['high_interest_content'] = True
+            
+            # Store the analytics data
             analytics_data = self._create_or_update_analytics_data(
-                post, 
-                processed_metrics, 
-                advanced_metrics, 
+                post,
+                processed_metrics,
+                advanced_metrics,
                 score_breakdown.final_score,
                 score_breakdown,
                 processing_start_time,
-                content_features=content_features  # Add NLP content features
+                content_features=content_features
             )
             
-            # Mark post as analyzed
+            # Update post flags
             post.is_analyzed = True
             post.performance_score = score_breakdown.final_score
-            
-            # Commit changes
             self.db.commit()
             
-            return {
-                'analytics_data': analytics_data,
-                'processed_metrics': processed_metrics,
-                'advanced_metrics': advanced_metrics,
-                'nlp_analysis': nlp_results,
-                'content_features': content_features,
-                'score_breakdown': score_breakdown
+            # Prepare detailed response with both NLP and CV analysis
+            result = {
+                "post": {
+                    "id": post.id,
+                    "title": post.title,
+                    "platform": post.platform.value if post.platform else None,
+                    "url": post.url,
+                    "published_at": post.published_at.isoformat() if post.published_at else None,
+                    "has_images": bool(post.images),
+                    "has_videos": bool(post.videos)
+                },
+                "performance": {
+                    "score": score_breakdown.final_score,
+                    "confidence": score_breakdown.confidence_score,
+                    "engagement_rate": processed_metrics.engagement_rate,
+                    "total_engagement": processed_metrics.total_engagement,
+                    "views": processed_metrics.views,
+                    "virality_score": advanced_metrics.virality_score,
+                    "trend_score": advanced_metrics.trend_score,
+                    "content_quality_score": advanced_metrics.content_quality_score
+                },
+                "breakdown": {
+                    "base_score": score_breakdown.base_score,
+                    "platform_adjustment": score_breakdown.platform_adjustment,
+                    "bonuses": score_breakdown.bonuses if score_breakdown.bonuses else [],
+                    "penalties": score_breakdown.penalties if score_breakdown.penalties else []
+                },
+                "patterns": enhanced_patterns,
+                "nlp_analysis": nlp_results,
+                "analytics_id": analytics_data.id,
+                "processing_time": analytics_data.processing_duration
             }
             
+            # Add CV analysis if available
+            if cv_results:
+                result["cv_analysis"] = cv_results
+            
+            return result
+            
         except Exception as e:
-            logger.error(f"Error analyzing post {post_id} with details: {str(e)}")
             self.db.rollback()
+            logger.error(f"Error in detailed analysis of post {post_id}: {str(e)}")
             return None
     
     def analyze_batch_posts(self, post_ids: List[int]) -> List[Dict[str, Any]]:
