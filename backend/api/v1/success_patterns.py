@@ -11,6 +11,7 @@ from db.database import get_db
 from db.models import Post, AnalyticsData, PlatformType, ContentType
 from analytics.engine import AnalyticsEngine
 from analytics.pattern_recognizer import PatternRecognizer
+from analytics.ml_pattern_predictor import MLPatternPredictor
 
 router = APIRouter(
     prefix="/api/v1/success-patterns",
@@ -243,4 +244,125 @@ async def get_patterns_by_content_type(
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving patterns by content type: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Error retrieving patterns by content type: {str(e)}")
+
+
+@router.post("/ml/train")
+async def train_ml_pattern_models(
+    days: int = Query(90, description="Number of days of data to use for training"),
+    min_samples: int = Query(100, description="Minimum number of samples required for training"),
+    db: Session = Depends(get_db)
+):
+    """
+    Train machine learning models for pattern prediction
+    
+    - **days**: Number of days of data to use for training (default: 90)
+    - **min_samples**: Minimum number of samples required for training (default: 100)
+    """
+    try:
+        # Create ML pattern predictor
+        ml_predictor = MLPatternPredictor(db)
+        
+        # Train models
+        result = ml_predictor.train_models(days=days, min_samples=min_samples)
+        
+        if not result["success"]:
+            return {
+                "success": False,
+                "message": result["message"]
+            }
+        
+        return {
+            "success": True,
+            "training_results": result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error training ML pattern models: {str(e)}")
+
+
+@router.get("/ml/evaluate")
+async def evaluate_ml_pattern_models(
+    db: Session = Depends(get_db)
+):
+    """
+    Evaluate machine learning models for pattern prediction
+    """
+    try:
+        # Create ML pattern predictor
+        ml_predictor = MLPatternPredictor(db)
+        
+        # Evaluate models
+        result = ml_predictor.evaluate_models()
+        
+        if not result["success"]:
+            return {
+                "success": False,
+                "message": result["message"]
+            }
+        
+        return {
+            "success": True,
+            "evaluation_results": result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error evaluating ML pattern models: {str(e)}")
+
+
+@router.get("/ml/info")
+async def get_ml_model_info(
+    db: Session = Depends(get_db)
+):
+    """
+    Get information about trained machine learning models for pattern prediction
+    """
+    try:
+        # Create ML pattern predictor
+        ml_predictor = MLPatternPredictor(db)
+        
+        # Get model info
+        result = ml_predictor.get_model_info()
+        
+        if not result["success"]:
+            return {
+                "success": False,
+                "message": result["message"]
+            }
+        
+        return {
+            "success": True,
+            "model_info": result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting ML model info: {str(e)}")
+
+
+@router.post("/ml/predict")
+async def predict_patterns_with_ml(
+    features: Dict[str, Any],
+    db: Session = Depends(get_db)
+):
+    """
+    Predict success patterns using machine learning models
+    
+    Request body should contain post features including NLP and CV data
+    """
+    try:
+        # Create ML pattern predictor
+        ml_predictor = MLPatternPredictor(db)
+        
+        # Make predictions
+        result = ml_predictor.predict_patterns(features)
+        
+        if not result["success"]:
+            return {
+                "success": False,
+                "message": result["message"]
+            }
+        
+        return {
+            "success": True,
+            "predicted_patterns": result["predicted_patterns"],
+            "pattern_count": result["pattern_count"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error predicting patterns with ML: {str(e)}") 

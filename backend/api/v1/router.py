@@ -19,6 +19,7 @@ from .success_patterns import router as patterns_router
 from .audit import router as audit_router
 from .security_monitoring import router as security_monitoring_router
 from .youtube import router as youtube_router
+from .feedback import router as feedback_router
 
 # Main router for v1 API
 router = APIRouter(prefix="/v1")
@@ -40,3 +41,4 @@ router.include_router(patterns_router)
 router.include_router(audit_router)
 router.include_router(security_monitoring_router)
 router.include_router(youtube_router)
+router.include_router(feedback_router)

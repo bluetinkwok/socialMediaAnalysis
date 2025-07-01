@@ -64,6 +64,9 @@ class AnalyticsEngine:
             nlp_results = self.nlp_analyzer.analyze_post(post)
             nlp_content_features = self.nlp_analyzer.extract_content_features(post)
             
+            # Add NLP data to advanced metrics for pattern recognition
+            advanced_metrics.nlp_data = nlp_results
+            
             # Perform CV analysis if post has images or videos
             cv_results = {}
             cv_content_features = {}
@@ -74,6 +77,9 @@ class AnalyticsEngine:
                 }
                 cv_results = self.cv_analyzer.analyze_content(post_data)
                 cv_content_features = self.cv_analyzer.extract_content_features(post_data)
+                
+                # Add CV data to advanced metrics for pattern recognition
+                advanced_metrics.cv_data = cv_results
             
             # Update content quality score with NLP and CV insights
             nlp_content_quality = self.nlp_analyzer.calculate_content_quality_score(nlp_results)
@@ -90,19 +96,12 @@ class AnalyticsEngine:
             # Update the content quality score
             advanced_metrics.content_quality_score = combined_quality
             
-            # Add NLP-identified patterns
-            nlp_patterns = self.nlp_analyzer.identify_content_patterns(nlp_results)
-            
-            # Add CV-identified patterns
-            cv_patterns = self.cv_analyzer.identify_visual_patterns(post_data) if post.images or post.videos else []
-            
-            # Apply enhanced pattern recognition
+            # Apply enhanced pattern recognition with NLP and CV data
             enhanced_patterns = self.pattern_recognizer.recognize_patterns(
                 post, processed_metrics, advanced_metrics
             )
-            # Combine traditional patterns with NLP and CV identified patterns
-            enhanced_patterns.extend(nlp_patterns)
-            enhanced_patterns.extend(cv_patterns)
+            
+            # Store the enhanced patterns in advanced metrics
             advanced_metrics.success_patterns = enhanced_patterns
             
             # Calculate performance score with detailed breakdown
@@ -198,7 +197,6 @@ class AnalyticsEngine:
             logger.error(f"Error analyzing post {post_id}: {str(e)}")
             return {
                 "success": False,
-                "post_id": post_id,
                 "error": str(e)
             }
     
