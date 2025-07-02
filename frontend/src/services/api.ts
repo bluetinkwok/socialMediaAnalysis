@@ -11,7 +11,8 @@ import type {
   DownloadJob, 
   AnalyticsData,
   PaginatedResponse,
-  FilterOptions 
+  FilterOptions,
+  DownloadJobStatus
 } from '../types';
 
 class ApiService {
@@ -224,6 +225,112 @@ class ApiService {
       }
 
       const response = await this.client.get(`/api/v1/search?${params}`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  // Analytics metrics
+  async getAnalyticsMetrics(days = 30, platform?: string, contentType?: string) {
+    try {
+      const response = await this.client.get('/api/v1/analytics/metrics', {
+        params: {
+          days,
+          ...(platform && { platform }),
+          ...(contentType && { content_type: contentType })
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getTimeSeriesData(days = 30, platform?: string, contentType?: string) {
+    try {
+      const response = await this.client.get('/api/v1/analytics/time-series', {
+        params: {
+          days,
+          ...(platform && { platform }),
+          ...(contentType && { content_type: contentType })
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getPlatformDistribution() {
+    try {
+      const response = await this.client.get('/api/v1/analytics/platform-distribution');
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getContentTypeDistribution() {
+    try {
+      const response = await this.client.get('/api/v1/analytics/content-type-distribution');
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  // Success Patterns
+  async getSuccessPatterns(page = 1, limit = 10, filters = {}) {
+    try {
+      const response = await this.client.get('/api/v1/success-patterns', {
+        params: { page, limit, ...filters },
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  // Recommendations
+  async getRecommendations(limit = 5, platform?: string, contentType?: string) {
+    try {
+      const response = await this.client.get('/api/v1/recommendations', {
+        params: {
+          limit,
+          ...(platform && { platform }),
+          ...(contentType && { content_type: contentType })
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getRecommendationsByType(type: string, limit = 5) {
+    try {
+      const response = await this.client.get(`/api/v1/recommendations/type/${type}`, {
+        params: { limit }
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getRecommendationTypes() {
+    try {
+      const response = await this.client.get('/api/v1/recommendations/types');
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getPostRecommendations(postId: string) {
+    try {
+      const response = await this.client.get(`/api/v1/recommendations/post/${postId}`);
       return response.data;
     } catch (error) {
       throw this.handleError(error);

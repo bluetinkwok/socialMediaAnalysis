@@ -13,6 +13,7 @@ import ContentLibrary from './pages/ContentLibrary';
 import ContentView from './pages/ContentView';
 import Analytics from './pages/Analytics';
 import SuccessPatterns from './pages/SuccessPatterns';
+import AnalyticsInsightsPage from './pages/AnalyticsInsightsPage';
 import Layout from './components/Layout';
 import './App.css';
 
@@ -40,6 +41,7 @@ function App() {
               <Route path="/content" element={<ContentLibrary />} />
               <Route path="/content/:id" element={<ContentView />} />
               <Route path="/analytics" element={<Analytics />} />
+              <Route path="/analytics/insights" element={<AnalyticsInsightsPage />} />
               <Route path="/success-patterns" element={<SuccessPatterns />} />
               {/* Add more routes as needed */}
             </Routes>

@@ -1,68 +1,50 @@
 import { useState, useEffect } from 'react';
-import apiService from '../services/api';
+import { apiService } from '../services/api';
+import type { AnalyticsData } from '../types';
 
-export interface DashboardData {
-  analytics: any;
-  downloadJobs: any[];
-  topPerformers: any[];
-  trendingHashtags: any[];
-  loading: boolean;
-  error: string | null;
+interface UseDashboardDataOptions {
+  refreshInterval?: number;
 }
 
-export const useDashboardData = (): DashboardData => {
+export function useDashboardData(options: UseDashboardDataOptions = {}) {
+  const { refreshInterval = 0 } = options;
+  const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [analytics, setAnalytics] = useState<any | null>(null);
-  const [downloadJobs, setDownloadJobs] = useState<any[]>([]);
-  const [topPerformers, setTopPerformers] = useState<any[]>([]);
-  const [trendingHashtags, setTrendingHashtags] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        
-        // Fetch analytics overview
-        const analyticsOverview = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/analytics/summary/overview`);
-        const analyticsData = await analyticsOverview.json();
-        
-        // Fetch download jobs
-        const jobs = await apiService.getDownloadJobs();
-        
-        // Fetch top performers across platforms
-        const topPerformersResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/analytics/top-performers/youtube?limit=5`);
-        const topPerformersData = await topPerformersResponse.json();
-        
-        // Fetch trending hashtags
-        const hashtagsResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/analytics/trends/hashtags`);
-        const hashtagsData = await hashtagsResponse.json();
-        
-        // Set state with fetched data
-        setAnalytics(analyticsData.data);
-        setDownloadJobs(jobs.slice(0, 5)); // Only show latest 5 jobs
-        setTopPerformers(topPerformersData.data.posts || []);
-        setTrendingHashtags(hashtagsData.data.hashtags || []);
-        
-        setLoading(false);
+        const analyticsData = await apiService.getAnalytics();
+        setData(analyticsData);
+        setError(null);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
-        setError('Failed to load dashboard data. Please try again later.');
+        setError('Failed to load analytics data');
+      } finally {
         setLoading(false);
       }
     };
 
-    fetchDashboardData();
-  }, []);
+    // Fetch data immediately
+    fetchData();
 
-  return {
-    analytics,
-    downloadJobs,
-    topPerformers,
-    trendingHashtags,
-    loading,
-    error
-  };
-};
+    // Set up interval if specified
+    let intervalId: number | undefined;
+    if (refreshInterval > 0) {
+      intervalId = window.setInterval(fetchData, refreshInterval);
+    }
+
+    // Clean up interval on unmount
+    return () => {
+      if (intervalId) {
+        window.clearInterval(intervalId);
+      }
+    };
+  }, [refreshInterval]);
+
+  return { data, loading, error };
+}
 
 export default useDashboardData; 
