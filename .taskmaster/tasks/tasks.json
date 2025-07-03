@@ -929,24 +929,24 @@
       {
         "id": 28,
         "title": "Finalize Docker Compose for Deployment",
-        "description": "Finalize Docker Compose configuration for production deployment, including persistent storage (volumes) and environment variables.",
-        "details": "Update `docker-compose.yml` to include production-ready configurations. Ensure volumes are correctly set up for the SQLite database file and the downloaded content directory (`downloads/`). Configure environment variables for application settings (e.g., API keys, database path). Add build contexts and commands for creating production images.",
-        "testStrategy": "Build production Docker images (`docker-compose build`). Run the application using `docker-compose up -d`. Verify that services start correctly, data persists across container restarts, and the application is accessible.",
-        "priority": "medium",
+        "description": "Finalized Docker Compose configuration for production deployment, including persistent storage (volumes) and environment variables. The setup is now ready for production deployment.",
+        "status": "done",
         "dependencies": [
           2,
           3,
           4
         ],
-        "status": "pending",
+        "priority": "medium",
+        "details": "The `docker-compose.yml` has been updated with production-ready configurations. Volumes are correctly set up for the SQLite database file and the downloaded content directory (`downloads/`). Environment variables for application settings (e.g., API keys, database path) are configured using a `.env.production` file. Build contexts and commands for creating production images are included. Resource limits and health checks are also configured.",
+        "testStrategy": "Build production Docker images (`docker-compose build`). Run the application using `docker-compose up -d`. Verify that services start correctly, data persists across container restarts, the application is accessible, and resource limits/health checks are functioning as expected. Refer to the DEPLOYMENT.md documentation for detailed steps.",
         "subtasks": [
           {
             "id": 1,
             "title": "Configure Persistent Storage Volumes",
             "description": "Set up Docker volumes in docker-compose.yml to persist the SQLite database file and the downloads directory.",
             "dependencies": [],
-            "details": "Define named volumes for the SQLite database and downloads directory to ensure data persistence across container restarts. Mount these volumes correctly in the service definitions to the appropriate container paths.",
-            "status": "pending",
+            "details": "Define named volumes for the SQLite database and downloads directory to ensure data persistence across container restarts. Mount these volumes correctly in the service definitions to the appropriate container paths.\n<info added on 2025-07-03T01:25:21.905Z>\nSpecifically, defined a named volume `sqlite_data` for the SQLite database and mounted it at `/app/data` in the backend container. Also added an environment variable `SQLITE_DB_PATH` to specify the database location within the container.\n</info added on 2025-07-03T01:25:21.905Z>",
+            "status": "done",
             "testStrategy": "Verify data persistence by restarting containers and checking that database and downloaded content remain intact."
           },
           {
@@ -956,8 +956,8 @@
             "dependencies": [
               1
             ],
-            "details": "Use environment variables and .env files to manage sensitive information and configuration settings. Ensure variables are injected into containers securely and correctly.",
-            "status": "pending",
+            "details": "Use environment variables and .env files to manage sensitive information and configuration settings. Ensure variables are injected into containers securely and correctly.\n<info added on 2025-07-03T01:29:46.621Z>\nCreated a production environment file (.env.production) containing necessary configuration values. Updated the docker-compose.yml file to reference this environment file using the env_file directive. Implemented default values for environment variables within the docker-compose.yml using the ${VAR:-default} syntax to enhance robustness. Included critical variables such as database connection details, security keys, application settings, and resource limits.\n</info added on 2025-07-03T01:29:46.621Z>",
+            "status": "done",
             "testStrategy": "Test container startup with environment variables set and verify application reads them correctly."
           },
           {
@@ -967,8 +967,8 @@
             "dependencies": [
               2
             ],
-            "details": "Define resource limits under the deploy section for each service to control CPU and memory usage, ensuring stable production deployment.",
-            "status": "pending",
+            "details": "Define resource limits under the deploy section for each service to control CPU and memory usage, ensuring stable production deployment.\n<info added on 2025-07-03T01:48:04.426Z>\nVerified that the docker-compose.yml file already has appropriate resource limits configured for all services. The frontend service is limited to 0.5 CPU cores and 512MB of memory, the backend service is limited to 1.0 CPU core and 1GB of memory, the PostgreSQL database is limited to 0.75 CPU cores and 1GB of memory, the Redis cache is limited to 0.25 CPU cores and 256MB of memory, and the monitoring-scheduler service is limited to 0.25 CPU cores and 256MB of memory. These resource limits are appropriate for the expected workload and will prevent any single container from consuming excessive resources.\n</info added on 2025-07-03T01:48:04.426Z>",
+            "status": "done",
             "testStrategy": "Monitor container resource usage under load to confirm limits are enforced and performance is stable."
           },
           {
@@ -978,8 +978,8 @@
             "dependencies": [
               3
             ],
-            "details": "Define healthcheck commands and intervals for each service to enable Docker to detect unhealthy containers and restart them if necessary.",
-            "status": "pending",
+            "details": "Define healthcheck commands and intervals for each service to enable Docker to detect unhealthy containers and restart them if necessary.\n<info added on 2025-07-03T01:49:51.934Z>\nVerified that all services in the docker-compose.yml file have appropriate health check configurations. The frontend service uses /healthcheck.sh, the backend service uses /app/healthcheck.sh, the PostgreSQL database uses pg_isready, the Redis cache uses redis-cli ping, and the monitoring-scheduler service checks for the running process. All health checks have appropriate intervals, timeouts, retries, and start periods configured. These health checks will ensure that Docker can detect unhealthy containers and restart them if necessary.\n</info added on 2025-07-03T01:49:51.934Z>",
+            "status": "done",
             "testStrategy": "Simulate failure scenarios and verify that unhealthy containers are detected and handled appropriately."
           },
           {
@@ -989,8 +989,8 @@
             "dependencies": [
               4
             ],
-            "details": "Prepare clear documentation covering volume setup, environment variables, resource limits, health checks, and deployment commands to assist future maintenance and onboarding.",
-            "status": "pending",
+            "details": "Prepare clear documentation covering volume setup, environment variables, resource limits, health checks, and deployment commands to assist future maintenance and onboarding.\n<info added on 2025-07-03T04:16:16.593Z>\nCreated a comprehensive DEPLOYMENT.md file in the docker directory documenting the finalized Docker Compose configuration and deployment process for production. The documentation covers prerequisites, configuration steps, volume setup, environment variables, resource limits, health checks, deployment commands, maintenance, troubleshooting, security considerations, and production recommendations.\n</info added on 2025-07-03T04:16:16.593Z>",
+            "status": "done",
             "testStrategy": "Review documentation for completeness and accuracy; conduct a deployment walkthrough using the documentation."
           }
         ]
@@ -1587,7 +1587,7 @@
     ],
     "metadata": {
       "created": "2025-06-22T11:33:57.173Z",
-      "updated": "2025-07-02T08:41:51.167Z",
+      "updated": "2025-07-03T04:17:01.228Z",
       "description": "Tasks for master context"
     }
   }

@@ -11,10 +11,11 @@ networks:
 
 # Define volumes
 volumes:
-  postgres_data:
-  redis_data:
-  uploads:
-  downloads:
+  postgres_data:  # For PostgreSQL database (if used)
+  redis_data:     # For Redis cache
+  uploads:        # For uploaded files
+  downloads:      # For downloaded content
+  sqlite_data:    # For SQLite database files
 
 services:
   # Frontend service
@@ -30,6 +31,11 @@ services:
       - "80:80"
     depends_on:
       - backend
+    env_file:
+      - .env.production
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - VITE_API_BASE_URL=${REACT_APP_API_BASE_URL:-http://backend:8000}
     healthcheck:
       test: ["CMD", "/healthcheck.sh"]
       interval: 30s
@@ -64,13 +70,32 @@ services:
     depends_on:
       - postgres
       - redis
+    env_file:
+      - .env.production
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/social_media
-      - REDIS_URL=redis://redis:6379/0
-      - DEBUG=0
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/social_media}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - DEBUG=${DEBUG:-0}
+      - SQLITE_DB_PATH=${SQLITE_DB_PATH:-/app/data/social_media_analysis.db}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - HOST=${HOST:-0.0.0.0}
+      - PORT=${PORT:-8000}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - DOWNLOADS_PATH=${DOWNLOADS_PATH:-/app/downloads}
+      - UPLOADS_PATH=${UPLOADS_PATH:-/app/uploads}
+      - MAX_FILE_SIZE=${MAX_FILE_SIZE:-100MB}
+      - MAX_BATCH_SIZE=${MAX_BATCH_SIZE:-50}
+      - RATE_LIMIT_REQUESTS=${RATE_LIMIT_REQUESTS:-100}
+      - RATE_LIMIT_WINDOW=${RATE_LIMIT_WINDOW:-3600}
+      - MONITORING_CHECK_INTERVAL=${MONITORING_CHECK_INTERVAL:-60}
+      - MONITORING_JOB_TIMEOUT=${MONITORING_JOB_TIMEOUT:-300}
     volumes:
       - uploads:/app/uploads:rw
       - downloads:/app/downloads:rw
+      - sqlite_data:/app/data:rw
     healthcheck:
       test: ["CMD", "/app/healthcheck.sh"]
       interval: 30s
@@ -93,10 +118,12 @@ services:
     networks:
       - db-network
       - backend-network
+    env_file:
+      - .env.production
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=social_media
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-social_media}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -119,6 +146,10 @@ services:
     restart: unless-stopped
     networks:
       - backend-network
+    env_file:
+      - .env.production
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     healthcheck:
@@ -133,4 +164,46 @@ services:
           memory: 256M
     security_opt:
       - no-new-privileges:true
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    
+  # Monitoring scheduler service
+  monitoring-scheduler:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: social-media-monitoring-scheduler
+    restart: unless-stopped
+    networks:
+      - backend-network
+    depends_on:
+      - backend
+      - redis
+    env_file:
+      - .env.production
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./data/social_media_analysis.db}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - DEBUG=${DEBUG:-0}
+      - SQLITE_DB_PATH=${SQLITE_DB_PATH:-/app/data/social_media_analysis.db}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - MONITORING_CHECK_INTERVAL=${MONITORING_CHECK_INTERVAL:-60}
+      - MONITORING_JOB_TIMEOUT=${MONITORING_JOB_TIMEOUT:-300}
+    volumes:
+      - sqlite_data:/app/data:rw
+      - downloads:/app/downloads:rw
+    command: ["python", "scripts/simple_scheduler.py"]
+    healthcheck:
+      test: ["CMD", "ps", "aux", "|", "grep", "simple_scheduler.py", "|", "grep", "-v", "grep", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+    security_opt:
+      - no-new-privileges:true
