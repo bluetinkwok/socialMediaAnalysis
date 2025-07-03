@@ -1,0 +1,18 @@
+[Unit]
+Description=Social Media Analysis Monitoring Scheduler
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/path/to/socialMediaAnalysis
+ExecStart=/path/to/socialMediaAnalysis/venv/bin/python backend/scripts/simple_scheduler.py
+Restart=on-failure
+RestartSec=5s
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=monitoring-scheduler
+
+[Install]
+WantedBy=multi-user.target

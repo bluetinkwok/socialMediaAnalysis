@@ -1,0 +1,18 @@
+[Unit]
+Description=Social Media Analysis - Monitoring Scheduler
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/social-media-analysis/backend
+ExecStart=/opt/social-media-analysis/backend/venv/bin/python /opt/social-media-analysis/backend/scripts/schedule_monitoring.py --interval 5
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=monitoring-scheduler
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target 

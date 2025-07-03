@@ -25,7 +25,7 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 from .browser_manager import BrowserManager
 from .rate_limiter import RateLimiter
 from .progress_tracker import ProgressTracker, ProgressStep, LoggingProgressCallback
-from db.models import PlatformType, ContentType
+from backend.db.models import PlatformType, ContentType
 
 logger = logging.getLogger(__name__)
 

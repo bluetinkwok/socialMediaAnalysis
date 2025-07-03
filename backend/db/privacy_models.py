@@ -5,15 +5,14 @@ This module defines SQLAlchemy models for privacy-related database tables.
 """
 
 from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Float, Boolean, ForeignKey, Enum, Index
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import datetime
 import enum
 
-from db.models import Base
-from core.encryption import encryption_service
-from db.encrypted_fields import encrypted_string_column, encrypted_json_column
+from backend.db.base_models import Base
+from backend.core.encryption import encryption_service
+from backend.db.encrypted_fields import encrypted_string_column, encrypted_json_column
 
 
 class ConsentType(enum.Enum):
@@ -56,8 +55,8 @@ class UserConsent(Base):
     user_agent = encrypted_string_column(nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
-    # Relationships
-    user = relationship("User", back_populates="consents")
+    # Relationships - use string reference to avoid circular import
+    user = relationship("User")
     
     def __repr__(self):
         return f"<UserConsent(id={self.id}, user_id={self.user_id}, type={self.consent_type}, granted={self.granted})>"
@@ -76,8 +75,8 @@ class DataSubjectRequest(Base):
     completed_at = Column(DateTime(timezone=True), nullable=True)
     notes = encrypted_string_column(nullable=True)
     
-    # Relationships
-    user = relationship("User", back_populates="data_requests")
+    # Relationships - use string reference to avoid circular import
+    user = relationship("User")
     
     def __repr__(self):
         return f"<DataSubjectRequest(id={self.id}, user_id={self.user_id}, type={self.request_type}, status={self.status})>"
@@ -136,8 +135,8 @@ class PrivacySettings(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     
-    # Relationships
-    user = relationship("User", back_populates="privacy_settings")
+    # Relationships - use string reference to avoid circular import
+    user = relationship("User")
     
     def __repr__(self):
         return f"<PrivacySettings(user_id={self.user_id})>"

@@ -3,13 +3,12 @@ SQLAlchemy models for Social Media Analysis Platform
 """
 
 from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Float, Boolean, ForeignKey, Enum, Index
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import datetime
 import enum
 
-Base = declarative_base()
+from backend.db.base_models import Base
 
 
 class PlatformType(enum.Enum):
@@ -36,6 +35,23 @@ class DownloadStatus(enum.Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+
+class MonitoringFrequency(enum.Enum):
+    """Monitoring frequency options"""
+    HOURLY = "hourly"
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    CUSTOM = "custom"  # For custom interval in minutes
+
+
+class MonitoringStatus(enum.Enum):
+    """Monitoring job status"""
+    ACTIVE = "active"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class Role(enum.Enum):
@@ -348,4 +364,126 @@ class UserSession(Base):
     expires_at = Column(DateTime(timezone=True))
     
     def __repr__(self):
-        return f"<UserSession(id={self.id}, session_id='{self.session_id[:8]}...')>" 
+        return f"<UserSession(id={self.id}, session_id='{self.session_id[:8]}...')>"
+
+
+class MonitoringJob(Base):
+    """Configuration for automated monitoring of channels/accounts"""
+    __tablename__ = "monitoring_jobs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(String(255), unique=True, nullable=False, index=True)  # UUID for external references
+    
+    # Monitoring target information
+    name = Column(String(255), nullable=False)  # User-friendly name for the monitoring job
+    platform = Column(Enum(PlatformType), nullable=False, index=True)
+    target_url = Column(String(2048), nullable=False)  # Channel/account URL to monitor
+    target_id = Column(String(255))  # Platform-specific ID for the target
+    target_type = Column(String(50), nullable=False)  # channel, account, hashtag, etc.
+    
+    # Scheduling configuration
+    frequency = Column(Enum(MonitoringFrequency), default=MonitoringFrequency.DAILY, nullable=False)
+    interval_minutes = Column(Integer)  # For custom frequency, interval in minutes
+    max_items_per_run = Column(Integer, default=10)  # Maximum number of items to download per run
+    
+    # Status and tracking
+    status = Column(Enum(MonitoringStatus), default=MonitoringStatus.ACTIVE, index=True)
+    last_run_at = Column(DateTime(timezone=True))
+    next_run_at = Column(DateTime(timezone=True))
+    total_runs = Column(Integer, default=0)
+    successful_runs = Column(Integer, default=0)
+    failed_runs = Column(Integer, default=0)
+    
+    # Notification settings
+    notify_on_new_content = Column(Boolean, default=True)
+    notify_on_failure = Column(Boolean, default=True)
+    notification_email = Column(String(255))
+    
+    # Advanced options
+    download_options = Column(JSON)  # Additional download configuration options
+    filter_criteria = Column(JSON)  # Criteria for filtering content to download
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    expires_at = Column(DateTime(timezone=True))  # Optional expiration date
+    
+    # User who created the monitoring job
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    user = relationship("User")
+    
+    # Indexes for common queries
+    __table_args__ = (
+        Index('idx_monitoring_status_next_run', 'status', 'next_run_at'),
+        Index('idx_monitoring_platform', 'platform'),
+        Index('idx_monitoring_user', 'user_id'),
+    )
+    
+    def __repr__(self):
+        return f"<MonitoringJob(id={self.id}, name='{self.name}', platform={self.platform}, status={self.status})>"
+    
+    def to_dict(self) -> dict:
+        """Convert monitoring job to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'job_id': self.job_id,
+            'name': self.name,
+            'platform': self.platform.value,
+            'target_url': self.target_url,
+            'target_id': self.target_id,
+            'target_type': self.target_type,
+            'frequency': self.frequency.value,
+            'interval_minutes': self.interval_minutes,
+            'max_items_per_run': self.max_items_per_run,
+            'status': self.status.value,
+            'last_run_at': self.last_run_at.isoformat() if self.last_run_at else None,
+            'next_run_at': self.next_run_at.isoformat() if self.next_run_at else None,
+            'total_runs': self.total_runs,
+            'successful_runs': self.successful_runs,
+            'failed_runs': self.failed_runs,
+            'notify_on_new_content': self.notify_on_new_content,
+            'notify_on_failure': self.notify_on_failure,
+            'notification_email': self.notification_email,
+            'download_options': self.download_options,
+            'filter_criteria': self.filter_criteria,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+            'user_id': self.user_id
+        }
+
+
+class MonitoringRun(Base):
+    """Record of individual monitoring job runs"""
+    __tablename__ = "monitoring_runs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Relationship to monitoring job
+    monitoring_job_id = Column(Integer, ForeignKey("monitoring_jobs.id"), nullable=False, index=True)
+    monitoring_job = relationship("MonitoringJob")
+    
+    # Run information
+    start_time = Column(DateTime(timezone=True), server_default=func.now())
+    end_time = Column(DateTime(timezone=True))
+    status = Column(Enum(DownloadStatus), default=DownloadStatus.IN_PROGRESS)
+    
+    # Results
+    items_found = Column(Integer, default=0)
+    items_processed = Column(Integer, default=0)
+    new_items_downloaded = Column(Integer, default=0)
+    
+    # Related download job (if any)
+    download_job_id = Column(Integer, ForeignKey("download_jobs.id"), nullable=True)
+    download_job = relationship("DownloadJob")
+    
+    # Error information
+    error_message = Column(Text)
+    error_details = Column(JSON)
+    
+    def __repr__(self):
+        return f"<MonitoringRun(id={self.id}, job_id={self.monitoring_job_id}, status={self.status})>"
+
+# Import privacy models at the end to resolve circular import
+# This needs to be after all the model definitions
+from backend.db.privacy_models import UserConsent, DataSubjectRequest, PrivacySettings 
